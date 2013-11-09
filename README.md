@@ -55,6 +55,7 @@ You probably want to add this to your log4j.properties file:
 
 ```ini
 log4j.logger.com.amazonaws=ERROR
+log4j.logger.org.apache.hadoop.fs=ERROR
 ```
 You should now be able to run commands:
 
