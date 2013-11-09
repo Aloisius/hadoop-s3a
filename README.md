@@ -7,9 +7,10 @@ at your own risk.
 
 Features:
 
-- File upload support for files > 5 GB
-- Parallel copy (rename) for faster workloads
-- S3 explorer compatible empty directories (no xyz_$folder$ files)
+- File upload & copy support for files >5 GB
+- Parallel upload support
+- Parallel copy (rename)
+- S3 explorer compatible empty directories using xyz/ instead of xyz_$folder$
 
 
 Build Instructions
@@ -63,4 +64,18 @@ You should now be able to run commands:
 $ hadoop fs -ls s3a://bucketname/foo
 ```
 
+
+Tunable parameters
+------------------
+
+These may or may not improve performance. The defaults were set without 
+much testing.
+
+- fs.s3a.maxConnections - Controls how many parallel connections HttpClient spawns
+- fs.s3a.secureConnections - Enables or disables SSL connections to S3
+- fs.s3a.maxErrorRetries - How many times we should retry commands on transient errors
+- fs.s3a.socketTimeout - Socket connect timeout
+- fs.s3a.maxPagingKeys - How many keys to request from S3 when doing directory listings at a time
+- fs.s3a.multipartSize - How big (in bytes) to split a upload or copy operation up into
+- fs.s3a.minMultipartSize - Until a file is this large (in bytes), use non-parallel upload/copy
 
