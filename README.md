@@ -58,6 +58,8 @@ log4j.logger.com.amazonaws=ERROR
 ```
 You should now be able to run commands:
 
-hadoop fs -ls s3a://bucketname/foo
+```shell
+$ hadoop fs -ls s3a://bucketname/foo
+```
 
 
