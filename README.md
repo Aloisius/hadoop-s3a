@@ -79,3 +79,25 @@ much testing.
 - fs.s3a.multipartSize - How big (in bytes) to split a upload or copy operation up into
 - fs.s3a.minMultipartSize - Until a file is this large (in bytes), use non-parallel upload/copy
 
+
+Caveats
+-------
+
+Hadoop uses a standard output committer which uploads files as 
+filename._COPYING_ before renaming them. This can cause unnecessary 
+performance issues with S3 because it does not have a rename operation 
+and S3 verifies uploads against an md5 that the driver sets on the 
+upload request. While this FileSystem should be significantly faster 
+than the built-in s3native driver because of parallel copy support, you 
+may want to consider setting a null output committer on our jobs to 
+further improve performance.
+
+Because S3 requires an MD5 be calculated before a file is uploaded, all 
+output is buffered out to a temporary file first similar to the s3native 
+driver.
+
+Due to the lack of native rename() for S3, renaming extremely large 
+files or directories make take a while. Unfortunately, there is no way 
+to notify hadoop that progress is still being made for rename 
+operations, so your job may time out unless you increase the task 
+timeout.
