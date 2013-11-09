@@ -260,6 +260,7 @@ public class S3AFileSystem extends FileSystem {
       S3AFileStatus dstStatus = getFileStatus(dst);
 
       if (srcStatus.isFile() && dstStatus.isDirectory()) {
+        LOG.info("rename: src is a file and dst is a directory");
         return false;
       }
 
@@ -583,13 +584,13 @@ public class S3AFileSystem extends FileSystem {
       ListObjectsRequest request = new ListObjectsRequest();
       request.setBucketName(bucket);
       request.setPrefix(key);
-      //request.setDelimiter("/");
+      request.setDelimiter("/");
       request.setMaxKeys(1);
 
       ObjectListing objects = s3.listObjects(request);
       LOG.info("Request for prefix " + key + " returned " + objects.getCommonPrefixes().size() +
           " prefixes and " + objects.getObjectSummaries().size() + " summaries");
-      if (objects.getCommonPrefixes().size() > 0 || objects.getObjectSummaries().size() > 0) {
+      if (objects.getCommonPrefixes().size() > 0 || objects.getObjectSummaries().size() > 1) {
         return new S3AFileStatus(true, false, f.makeQualified(uri, workingDir));
       }
     } catch (AmazonClientException e) {
