@@ -255,9 +255,9 @@ public class S3AFileSystem extends FileSystem {
       return false;
     }
 
-
+    S3AFileStatus dstStatus = null;
     try {
-      S3AFileStatus dstStatus = getFileStatus(dst);
+      dstStatus = getFileStatus(dst);
 
       if (srcStatus.isFile() && dstStatus.isDirectory()) {
         LOG.info("rename: src is a file and dst is a directory");
@@ -276,8 +276,8 @@ public class S3AFileSystem extends FileSystem {
       Path parent = dst.getParent();
       if (!pathToKey(parent).isEmpty()) {
         try {
-          S3AFileStatus dstStatus = getFileStatus(dst.getParent());
-          if (!dstStatus.isDirectory()) {
+          S3AFileStatus dstParentStatus = getFileStatus(dst.getParent());
+          if (!dstParentStatus.isDirectory()) {
             return false;
           }
         } catch (FileNotFoundException e2) {
@@ -298,6 +298,20 @@ public class S3AFileSystem extends FileSystem {
       if (!dstKey.endsWith("/")) {
         dstKey = dstKey + "/";
       }
+      if (!srcKey.endsWith("/")) {
+        srcKey = srcKey + "/";
+      }
+
+      List<DeleteObjectsRequest.KeyVersion> keysToDelete = new ArrayList<DeleteObjectsRequest.KeyVersion>();
+      if (dstStatus != null && dstStatus.isEmptyDirectory()) {
+        LOG.info("dstStatus is empty directory");
+        copyFile(srcKey, dstKey);
+        keysToDelete.add(new DeleteObjectsRequest.KeyVersion(srcKey));
+      }
+
+      if (dstStatus != null) {
+        LOG.info("dstStatus is not null empty? " + dstStatus.isEmptyDirectory());
+      }
 
       ListObjectsRequest request = new ListObjectsRequest();
       request.setBucketName(bucket);
@@ -306,12 +320,13 @@ public class S3AFileSystem extends FileSystem {
       // request.setDelimiter("/");
       request.setMaxKeys(maxKeys);
 
-      List<DeleteObjectsRequest.KeyVersion> keysToDelete = new ArrayList<DeleteObjectsRequest.KeyVersion>();
+
+      LOG.info("rename: " + bucket + " " + srcKey + ": " + request);
       ObjectListing objects = s3.listObjects(request);
       while (true) {
         for (S3ObjectSummary summary : objects.getObjectSummaries()) {
           keysToDelete.add(new DeleteObjectsRequest.KeyVersion(summary.getKey()));
-          String newDstKey = dstKey + summary.getKey().substring(srcKey.length() + 1);
+          String newDstKey = dstKey + summary.getKey().substring(srcKey.length());
           LOG.info("rename: copyFile " + summary.getKey() + " to " + newDstKey);
           copyFile(summary.getKey(), newDstKey);
         }
@@ -323,9 +338,12 @@ public class S3AFileSystem extends FileSystem {
         }
       }
 
-      DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket);
-      deleteRequest.setKeys(keysToDelete);
-      s3.deleteObjects(deleteRequest);
+
+      if (!keysToDelete.isEmpty()) {
+        DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket);
+        deleteRequest.setKeys(keysToDelete);
+        s3.deleteObjects(deleteRequest);
+      }
     }
 
     deleteUnnecessaryFakeDirectories(dst.getParent());

@@ -1,9 +1,9 @@
-An AWS SDK-based FileSystem driver for Hadoop
+An AWS SDK-backed FileSystem driver for Hadoop
 ==============================================
 
 This is an experimental FileSystem for Hadoop that uses the AWS SDK 
 instead of jets3t to connect. This has not been heavily tested yet. Use 
-at your own risk.
+at your own risk. 
 
 Features:
 
