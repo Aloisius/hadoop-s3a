@@ -18,8 +18,9 @@ Build Instructions
 
 Build or download aws-java-sdk 1.6.5
 
-copy aws-java-sdk-1.6.5.jar and hadoop-s3a.jar to your hadoop classpath 
-(run hadoop classpath for the appropriate directory)
+copy aws-java-sdk-1.6.5.jar, httpcore-4.2.jar, httpclient-4.2.3.jar 
+(from aws lib) and hadoop-s3a.jar to your hadoop classpath (run hadoop 
+classpath for the appropriate directory)
 
 Build src
 

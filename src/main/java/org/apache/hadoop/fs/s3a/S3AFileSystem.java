@@ -597,8 +597,11 @@ public class S3AFileSystem extends FileSystem {
       }
     }
 
-    LOG.info("Looking using list");
+    LOG.info("Looking using list: " + key);
     try {
+      if (!key.isEmpty() && !key.endsWith("/")) {
+        key = key + "/";
+      }
       ListObjectsRequest request = new ListObjectsRequest();
       request.setBucketName(bucket);
       request.setPrefix(key);
@@ -608,13 +611,20 @@ public class S3AFileSystem extends FileSystem {
       ObjectListing objects = s3.listObjects(request);
       LOG.info("Request for prefix " + key + " returned " + objects.getCommonPrefixes().size() +
           " prefixes and " + objects.getObjectSummaries().size() + " summaries");
-      if (objects.getCommonPrefixes().size() > 0 || objects.getObjectSummaries().size() > 1) {
+      for (S3ObjectSummary summary : objects.getObjectSummaries()) {
+        LOG.info("DEBUG: Summary: " + summary.getKey() + " " + summary.getSize());
+      }
+      for (String prefix : objects.getCommonPrefixes()) {
+        LOG.info("DEBUG: Prefix: " + prefix);
+      }
+      if (objects.getCommonPrefixes().size() > 0 || objects.getObjectSummaries().size() > 0) {
         return new S3AFileStatus(true, false, f.makeQualified(uri, workingDir));
       }
     } catch (AmazonClientException e) {
       //
     }
 
+    LOG.info("Not Found: " + key);
     throw new FileNotFoundException("No such file or directory: " + f);
   }
 
