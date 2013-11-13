@@ -638,7 +638,7 @@ public class S3AFileSystem extends FileSystem {
       //
     }
 
-    LOG.info("Not Found: " + key);
+    LOG.info("Not Found: " + f);
     throw new FileNotFoundException("No such file or directory: " + f);
   }
 
