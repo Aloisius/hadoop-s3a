@@ -80,6 +80,8 @@ public class S3AOutputStream extends OutputStream {
     backupFile.deleteOnExit();
     closed = false;
 
+    LOG.info("OutputStream for key '" + key + "' writing to tempfile '" + this.backupFile + "'");
+
     try {
       digest = MessageDigest.getInstance("MD5");
       this.backupStream = new BufferedOutputStream(new DigestOutputStream(
