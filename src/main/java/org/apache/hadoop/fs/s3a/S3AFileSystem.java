@@ -391,11 +391,12 @@ public class S3AFileSystem extends FileSystem {
         throw new IOException("Path is a folder: " + f);
       }
 
+      if (!key.endsWith("/")) {
+        key = key + "/";
+      }
+
       LOG.info("delete: Going to delete directory" + f);
       if (status.isEmptyDirectory()) {
-        if (!key.endsWith("/")) {
-          key = key + "/";
-        }
         LOG.info("Deleting fake empty directory");
         s3.deleteObject(bucket, key);
       } else {
