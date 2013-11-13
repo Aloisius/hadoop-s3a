@@ -21,33 +21,24 @@ package org.apache.hadoop.fs.s3a;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.util.Progressable;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.security.DigestOutputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 
 import static org.apache.hadoop.fs.s3a.S3AConstants.*;
 
 public class S3AOutputStream extends OutputStream {
   private OutputStream backupStream;
   private File backupFile;
-  private MessageDigest digest;
   private boolean closed;
   private String key;
   private String bucket;
@@ -83,14 +74,7 @@ public class S3AOutputStream extends OutputStream {
 
     LOG.info("OutputStream for key '" + key + "' writing to tempfile '" + this.backupFile + "'");
 
-    try {
-      digest = MessageDigest.getInstance("MD5");
-      this.backupStream = new BufferedOutputStream(new DigestOutputStream(
-          new FileOutputStream(backupFile), digest));
-    } catch (NoSuchAlgorithmException e) {
-      LOG.warn("Cannot load MD5 digest algorithm, skipping message integrity check.", e);
-      this.backupStream = new BufferedOutputStream(new FileOutputStream(backupFile));
-    }
+    this.backupStream = new BufferedOutputStream(new FileOutputStream(backupFile));
   }
 
   @Override
@@ -108,16 +92,6 @@ public class S3AOutputStream extends OutputStream {
     LOG.info("OutputStream for key '" + key + "' closed. Now beginning upload");
 
     try {
-      ObjectMetadata metaData = new ObjectMetadata();
-      metaData.setContentLength(backupFile.length());
-      if (digest != null) {
-        Base64 base64 = new Base64(0);
-        metaData.setContentMD5(base64.encodeToString(digest.digest()));
-      }
-
-      PutObjectRequest request = new PutObjectRequest(bucket, key, backupFile);
-      request.setMetadata(metaData);
-
       TransferManagerConfiguration transferConfiguration = new TransferManagerConfiguration();
       transferConfiguration.setMinimumUploadPartSize(partSize);
       transferConfiguration.setMultipartUploadThreshold(partSizeThreshold);
@@ -125,7 +99,7 @@ public class S3AOutputStream extends OutputStream {
       TransferManager transfers = new TransferManager(client);
       transfers.setConfiguration(transferConfiguration);
 
-      Upload up = transfers.upload(request);
+      Upload up = transfers.upload(bucket, key, backupFile);
       up.addProgressListener(new ProgressableProgressListener((progress)));
 
       up.waitForUploadResult();
