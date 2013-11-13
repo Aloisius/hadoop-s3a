@@ -3,7 +3,7 @@ An AWS SDK-backed FileSystem driver for Hadoop
 
 This is an experimental FileSystem for Hadoop that uses the AWS SDK 
 instead of jets3t to connect. This has not been heavily tested yet. Use 
-at your own risk. 
+at your own risk.
 
 Features:
 
@@ -106,3 +106,7 @@ timeout.
 This driver will fully ignore _$folder$ files. This was necessary so 
 that it could interoperate with repositories that have had the s3native 
 driver used on them.
+
+This has only been run under CDH 4, but it should work with other 
+distributions of hadoop. Be sure to watch out for conflicting versions 
+of httpclient.
