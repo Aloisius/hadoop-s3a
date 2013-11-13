@@ -102,3 +102,7 @@ files or directories make take a while. Unfortunately, there is no way
 to notify hadoop that progress is still being made for rename 
 operations, so your job may time out unless you increase the task 
 timeout.
+
+This driver will fully ignore _$folder$ files. This was necessary so 
+that it could interoperate with repositories that have had the s3native 
+driver used on them.
