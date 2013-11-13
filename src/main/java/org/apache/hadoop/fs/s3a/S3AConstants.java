@@ -30,7 +30,7 @@ public class S3AConstants {
   public static final boolean DEFAULT_SECURE_CONNECTIONS = true;
 
   public static final String MAX_ERROR_RETRIES = "fs.s3a.maxErrorRetries";
-  public static final int DEFAULT_MAX_ERROR_RETRIES = 3;
+  public static final int DEFAULT_MAX_ERROR_RETRIES = 5;
 
   public static final String SOCKET_TIMEOUT = "fs.s3a.socketTimeout";
   public static final int DEFAULT_SOCKET_TIMEOUT = 50000;

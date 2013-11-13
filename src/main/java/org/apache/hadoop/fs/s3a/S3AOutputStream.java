@@ -22,6 +22,7 @@ import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
@@ -114,6 +115,9 @@ public class S3AOutputStream extends OutputStream {
         metaData.setContentMD5(base64.encodeToString(digest.digest()));
       }
 
+      PutObjectRequest request = new PutObjectRequest(bucket, key, backupFile);
+      request.setMetadata(metaData);
+
       TransferManagerConfiguration transferConfiguration = new TransferManagerConfiguration();
       transferConfiguration.setMinimumUploadPartSize(partSize);
       transferConfiguration.setMultipartUploadThreshold(partSizeThreshold);
@@ -121,7 +125,7 @@ public class S3AOutputStream extends OutputStream {
       TransferManager transfers = new TransferManager(client);
       transfers.setConfiguration(transferConfiguration);
 
-      Upload up = transfers.upload(bucket, key, new BufferedInputStream(new FileInputStream(backupFile)), metaData);
+      Upload up = transfers.upload(request);
       up.addProgressListener(new ProgressableProgressListener((progress)));
 
       up.waitForUploadResult();

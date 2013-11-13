@@ -78,6 +78,8 @@ public class S3AFileSystem extends FileSystem {
   private int partSizeThreshold;
   public static final Log LOG = LogFactory.getLog(S3AFileSystem.class);
 
+  private static final String S3N_FOLDER_SUFFIX = "_$folder$";
+
   /** Called after a new FileSystem instance is constructed.
    * @param name a uri whose authority section names the host, port, etc.
    *   for this FileSystem
@@ -478,7 +480,8 @@ public class S3AFileSystem extends FileSystem {
       while (true) {
         for (S3ObjectSummary summary : objects.getObjectSummaries()) {
           Path keyPath = keyToPath(summary.getKey()).makeQualified(uri, workingDir);
-          if (keyPath.equals(f)) {
+          // Skip over keys that are ourselves and old S3N _$folder$ files
+          if (keyPath.equals(f) || summary.getKey().endsWith(S3N_FOLDER_SUFFIX)) {
             continue;
           }
 
@@ -658,6 +661,8 @@ public class S3AFileSystem extends FileSystem {
     if (!overwrite && exists(dst)) {
       throw new IOException(dst + " already exists");
     }
+
+    LOG.info("copyFromLocalFile " + src + " -> " + dst);
 
     // Since we have a local file, we don't need to stream into a temporary file
     LocalFileSystem local = getLocal(getConf());
