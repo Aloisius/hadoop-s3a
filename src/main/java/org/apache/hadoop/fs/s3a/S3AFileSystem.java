@@ -18,6 +18,9 @@
 
 package org.apache.hadoop.fs.s3a;
 
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,6 +49,9 @@ import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 
+import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
+import com.amazonaws.services.s3.transfer.Upload;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -53,6 +59,8 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FileUtil;
+import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
@@ -167,6 +175,7 @@ public class S3AFileSystem extends FileSystem {
   public FSDataInputStream open(Path f, int bufferSize)
       throws IOException {
 
+    LOG.info("Opening '" + f + "' for reading");
     final FileStatus fileStatus = getFileStatus(f);
     if (fileStatus.isDirectory()) {
       throw new IOException("Can't open " + f + " because it is a directory");
@@ -346,8 +355,10 @@ public class S3AFileSystem extends FileSystem {
       }
     }
 
-    deleteUnnecessaryFakeDirectories(dst.getParent());
-    createFakeDirectoryIfNecessary(src.getParent());
+    if (src.getParent() != dst.getParent()) {
+      deleteUnnecessaryFakeDirectories(dst.getParent());
+      createFakeDirectoryIfNecessary(src.getParent());
+    }
     return true;
   }
 
@@ -626,6 +637,52 @@ public class S3AFileSystem extends FileSystem {
 
     LOG.info("Not Found: " + key);
     throw new FileNotFoundException("No such file or directory: " + f);
+  }
+
+  /**
+   * The src file is on the local disk.  Add it to FS at
+   * the given dst name.
+   *
+   * This version doesn't need to create a temporary file to calculate the md5
+   *
+   * delSrc indicates if the source should be removed
+   * @param delSrc whether to delete the src
+   * @param overwrite whether to overwrite an existing file
+   * @param src path
+   * @param dst path
+   */
+  @Override
+  public void copyFromLocalFile(boolean delSrc, boolean overwrite, Path src, Path dst) throws IOException {
+    String key = pathToKey(dst);
+
+    if (!overwrite && exists(dst)) {
+      throw new IOException(dst + " already exists");
+    }
+
+    // Since we have a local file, we don't need to stream into a temporary file
+    LocalFileSystem local = getLocal(getConf());
+    File srcfile = local.pathToFile(src);
+
+    TransferManagerConfiguration transferConfiguration = new TransferManagerConfiguration();
+    transferConfiguration.setMinimumUploadPartSize(partSize);
+    transferConfiguration.setMultipartUploadThreshold(partSizeThreshold);
+
+    TransferManager transfers = new TransferManager(s3);
+    transfers.setConfiguration(transferConfiguration);
+
+    Upload up = transfers.upload(bucket, key, srcfile);
+    try {
+      up.waitForUploadResult();
+    } catch (InterruptedException e) {
+      throw new IOException("Got interrupted, cancelling");
+    }
+
+    // This will delete unnecessary fake parent directories
+    finishedWrite(key);
+
+    if (delSrc) {
+      local.delete(src, false);
+    }
   }
 
   private void copyFile(String srcKey, String dstKey) throws IOException {
