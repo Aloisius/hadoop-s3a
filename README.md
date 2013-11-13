@@ -2,15 +2,18 @@ An AWS SDK-backed FileSystem driver for Hadoop
 ==============================================
 
 This is an experimental FileSystem for Hadoop that uses the AWS SDK 
-instead of jets3t to connect. This has not been heavily tested yet. Use 
-at your own risk.
+instead of jets3t to connect. It is intended as a replacement for the 
+s3native FileSystem. This has not been heavily tested yet. Use at your 
+own risk.
 
 Features:
 
 - File upload & copy support for files >5 GB
+- Significantly faster performance, especially for large files
 - Parallel upload support
 - Parallel copy (rename)
-- S3 explorer compatible empty directories using xyz/ instead of xyz_$folder$
+- AWS S3 explorer compatible empty directories using xyz/ instead of xyz_$folder$
+- Ignores _$folder$ files created by s3native and other S3 browsing utilities
 
 
 Build Instructions
