@@ -46,4 +46,8 @@ public class S3AConstants {
 
   public static final String BUFFER_DIR = "fs.s3a.buffer.dir";
 
+  // private | public-read | public-read-write | authenticated-read | log-delivery-write | bucket-owner-read | bucket-owner-full-control
+  public static final String CANNED_ACL = "fs.s3a.cannedACL";
+  public static final String DEFAULT_CANNED_ACL = "";
+
 }

@@ -21,6 +21,8 @@ package org.apache.hadoop.fs.s3a;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
@@ -47,17 +49,19 @@ public class S3AOutputStream extends OutputStream {
   private long partSize;
   private int partSizeThreshold;
   private S3AFileSystem fs;
+  private CannedAccessControlList cannedACL;
 
   public static final Log LOG = S3AFileSystem.LOG;
 
   public S3AOutputStream(Configuration conf, AmazonS3Client client, S3AFileSystem fs, String bucket, String key,
-                         Progressable progress, int bufferSize)
+                         Progressable progress, int bufferSize, CannedAccessControlList cannedACL)
       throws IOException {
     this.bucket = bucket;
     this.key = key;
     this.client = client;
     this.progress = progress;
     this.fs = fs;
+    this.cannedACL = cannedACL;
 
     partSize = conf.getLong(MULTIPART_SIZE, DEFAULT_MULTIPART_SIZE);
     partSizeThreshold = conf.getInt(MIN_MULTIPART_THRESHOLD, DEFAULT_MIN_MULTIPART_THRESHOLD);
@@ -99,7 +103,10 @@ public class S3AOutputStream extends OutputStream {
       TransferManager transfers = new TransferManager(client);
       transfers.setConfiguration(transferConfiguration);
 
-      Upload up = transfers.upload(bucket, key, backupFile);
+      PutObjectRequest putObjectRequest = new PutObjectRequest(bucket, key, backupFile);
+      putObjectRequest.setCannedAcl(cannedACL);
+
+      Upload up = transfers.upload(putObjectRequest);
       up.addProgressListener(new ProgressableProgressListener((progress)));
 
       up.waitForUploadResult();

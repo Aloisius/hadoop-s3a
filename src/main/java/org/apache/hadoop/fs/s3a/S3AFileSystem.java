@@ -18,9 +18,7 @@
 
 package org.apache.hadoop.fs.s3a;
 
-import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,29 +35,31 @@ import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 
 import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.CopyPartResult;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PartETag;
+import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
-import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
@@ -77,6 +77,7 @@ public class S3AFileSystem extends FileSystem {
   private long partSize;
   private int partSizeThreshold;
   public static final Log LOG = LogFactory.getLog(S3AFileSystem.class);
+  private CannedAccessControlList cannedACL;
 
   private static final String S3N_FOLDER_SUFFIX = "_$folder$";
 
@@ -129,6 +130,14 @@ public class S3AFileSystem extends FileSystem {
     maxKeys = conf.getInt(MAX_PAGING_KEYS, DEFAULT_MAX_PAGING_KEYS);
     partSize = conf.getLong(MULTIPART_SIZE, DEFAULT_MULTIPART_SIZE);
     partSizeThreshold = conf.getInt(MIN_MULTIPART_THRESHOLD, DEFAULT_MIN_MULTIPART_THRESHOLD);
+
+    String cannedACLName = conf.get(CANNED_ACL, DEFAULT_CANNED_ACL);
+    if (!cannedACLName.isEmpty()) {
+      cannedACL = CannedAccessControlList.valueOf(cannedACLName);
+    } else {
+      cannedACL = null;
+    }
+
     setConf(conf);
   }
 
@@ -209,7 +218,7 @@ public class S3AFileSystem extends FileSystem {
       throw new IOException(f + " already exists");
     }
 
-    return new FSDataOutputStream(new S3AOutputStream(getConf(), s3, this, bucket, key, progress, bufferSize), statistics);
+    return new FSDataOutputStream(new S3AOutputStream(getConf(), s3, this, bucket, key, progress, bufferSize, cannedACL), statistics);
   }
 
   /**
@@ -700,11 +709,13 @@ public class S3AFileSystem extends FileSystem {
     ObjectMetadata metadataResult = s3.getObjectMetadata(metadataRequest);
     long objectSize = metadataResult.getContentLength();
 
+    CopyObjectRequest copyObjectRequest = new CopyObjectRequest(bucket, srcKey, bucket, dstKey);
+    copyObjectRequest.setCannedAccessControlList(cannedACL);
+
     if (objectSize <= partSizeThreshold) {
-      s3.copyObject(bucket, srcKey, bucket, dstKey);
+      s3.copyObject(copyObjectRequest);
     } else {
       S3ACopyTransferManager copyTransfer = new S3ACopyTransferManager(s3, partSize);
-      CopyObjectRequest copyObjectRequest = new CopyObjectRequest(bucket, srcKey, bucket, dstKey);
       try {
         copyTransfer.copyObject(copyObjectRequest);
       } catch (InterruptedException e) {
@@ -784,8 +795,9 @@ public class S3AFileSystem extends FileSystem {
 
     final ObjectMetadata om = new ObjectMetadata();
     om.setContentLength(0L);
-
-    s3.putObject(bucketName, objectName, im, om);
+    PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, objectName, im, om);
+    putObjectRequest.setCannedAcl(cannedACL);
+    s3.putObject(putObjectRequest);
   }
 
   /**

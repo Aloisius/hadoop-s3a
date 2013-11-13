@@ -82,6 +82,7 @@ much testing.
 - fs.s3a.maxPagingKeys - How many keys to request from S3 when doing directory listings at a time
 - fs.s3a.multipartSize - How big (in bytes) to split a upload or copy operation up into
 - fs.s3a.minMultipartSize - Until a file is this large (in bytes), use non-parallel upload/copy
+- fs.s3a.cannedACL - Set a canned ACL on newly created/copied objects (private | public-read | public-read-write | authenticated-read | log-delivery-write | bucket-owner-read | bucket-owner-full-control)
 
 
 Caveats
