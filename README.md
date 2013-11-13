@@ -97,9 +97,9 @@ than the built-in s3native driver because of parallel copy support, you
 may want to consider setting a null output committer on our jobs to 
 further improve performance.
 
-Because S3 requires an MD5 be calculated before a file is uploaded, all 
-output is buffered out to a temporary file first similar to the s3native 
-driver.
+Because S3 requires the file length be known before a file is uploaded, 
+all output is buffered out to a temporary file first similar to the 
+s3native driver.
 
 Due to the lack of native rename() for S3, renaming extremely large 
 files or directories make take a while. Unfortunately, there is no way 
@@ -114,3 +114,13 @@ driver used on them.
 This has only been run under CDH 4, but it should work with other 
 distributions of hadoop. Be sure to watch out for conflicting versions 
 of httpclient.
+
+Statistics for the filesystem may be calcualted differently than other 
+filesystems. When uploading a file, we do not count writing the 
+temporary file on the local filesystem towards the local filesystem's 
+written bytes count. When renaming files, we do not count the S3->S3 
+copy as read or write operations. Unlike the s3native driver, we only 
+count bytes written when we start the upload (as opposed to the write 
+calls to the temporary local file). The driver also counts read & write 
+ops, but they are done mostly to keep from timing out on large s3 
+operations.

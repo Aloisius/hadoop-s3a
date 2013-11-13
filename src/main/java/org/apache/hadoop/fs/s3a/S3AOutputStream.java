@@ -28,6 +28,7 @@ import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.util.Progressable;
 
 import java.io.BufferedOutputStream;
@@ -50,11 +51,12 @@ public class S3AOutputStream extends OutputStream {
   private int partSizeThreshold;
   private S3AFileSystem fs;
   private CannedAccessControlList cannedACL;
+  private FileSystem.Statistics statistics;
 
   public static final Log LOG = S3AFileSystem.LOG;
 
   public S3AOutputStream(Configuration conf, AmazonS3Client client, S3AFileSystem fs, String bucket, String key,
-                         Progressable progress, int bufferSize, CannedAccessControlList cannedACL)
+                         Progressable progress, CannedAccessControlList cannedACL, FileSystem.Statistics statistics)
       throws IOException {
     this.bucket = bucket;
     this.key = key;
@@ -62,6 +64,7 @@ public class S3AOutputStream extends OutputStream {
     this.progress = progress;
     this.fs = fs;
     this.cannedACL = cannedACL;
+    this.statistics = statistics;
 
     partSize = conf.getLong(MULTIPART_SIZE, DEFAULT_MULTIPART_SIZE);
     partSizeThreshold = conf.getInt(MIN_MULTIPART_THRESHOLD, DEFAULT_MIN_MULTIPART_THRESHOLD);
@@ -107,9 +110,16 @@ public class S3AOutputStream extends OutputStream {
       putObjectRequest.setCannedAcl(cannedACL);
 
       Upload up = transfers.upload(putObjectRequest);
-      up.addProgressListener(new ProgressableProgressListener((progress)));
+      ProgressableProgressListener listener = new ProgressableProgressListener(progress, statistics);
+      up.addProgressListener(listener);
 
       up.waitForUploadResult();
+
+      long delta = up.getProgress().getBytesTransferred() - listener.getLastBytesTransferred();
+      if (statistics != null && delta != 0) {
+        LOG.info("S3A write delta changed after finished: " + delta + " bytes");
+        statistics.incrementBytesWritten(delta);
+      }
 
       // This will delete unnecessary fake parent directories
       fs.finishedWrite(key);
@@ -138,15 +148,37 @@ public class S3AOutputStream extends OutputStream {
 
   class ProgressableProgressListener implements ProgressListener {
     private Progressable progress;
+    private FileSystem.Statistics statistics;
+    private long lastBytesTransferred;
 
-    ProgressableProgressListener(Progressable progress) {
+    public ProgressableProgressListener(Progressable progress, FileSystem.Statistics statistics) {
       this.progress = progress;
+      this.statistics = statistics;
+      this.lastBytesTransferred = 0;
     }
 
     public void progressChanged(ProgressEvent progressEvent) {
       if (progress != null) {
         progress.progress();
       }
+
+      // There are 3 http ops here, but this should be close enough for now
+      if (progressEvent.getEventCode() == ProgressEvent.PART_STARTED_EVENT_CODE ||
+          progressEvent.getEventCode() == ProgressEvent.COMPLETED_EVENT_CODE) {
+        statistics.incrementWriteOps(1);
+      }
+
+      long delta = progressEvent.getBytesTransferred() - lastBytesTransferred;
+      if (statistics != null && delta != 0) {
+        statistics.incrementBytesWritten(delta);
+        LOG.info("S3A write delta: " + delta + " bytes");
+      }
+
+      lastBytesTransferred = progressEvent.getBytesTransferred();
+    }
+
+    public long getLastBytesTransferred() {
+      return lastBytesTransferred;
     }
   }
 }

@@ -193,6 +193,7 @@ public class S3AFileSystem extends FileSystem {
     }
 
     S3Object obj = s3.getObject(bucket, pathToKey(f));
+    statistics.incrementReadOps(1);
     return new FSDataInputStream(new S3AInputStream(obj, s3, statistics));
   }
 
@@ -218,7 +219,8 @@ public class S3AFileSystem extends FileSystem {
       throw new IOException(f + " already exists");
     }
 
-    return new FSDataOutputStream(new S3AOutputStream(getConf(), s3, this, bucket, key, progress, bufferSize, cannedACL), statistics);
+    // We pass null to FSDataOutputStream so it won't count writes that are being buffered to a file
+    return new FSDataOutputStream(new S3AOutputStream(getConf(), s3, this, bucket, key, progress, cannedACL, statistics), null);
   }
 
   /**
@@ -326,6 +328,7 @@ public class S3AFileSystem extends FileSystem {
       if (dstStatus != null && dstStatus.isEmptyDirectory()) {
         LOG.info("dstStatus is empty directory");
         copyFile(srcKey, dstKey);
+        statistics.incrementWriteOps(1);
         keysToDelete.add(new DeleteObjectsRequest.KeyVersion(srcKey));
       }
 
@@ -343,6 +346,7 @@ public class S3AFileSystem extends FileSystem {
 
       LOG.info("rename: " + bucket + " " + srcKey + ": " + request);
       ObjectListing objects = s3.listObjects(request);
+      statistics.incrementReadOps(1);
       while (true) {
         for (S3ObjectSummary summary : objects.getObjectSummaries()) {
           keysToDelete.add(new DeleteObjectsRequest.KeyVersion(summary.getKey()));
@@ -353,6 +357,7 @@ public class S3AFileSystem extends FileSystem {
 
         if (objects.isTruncated()) {
           objects = s3.listNextBatchOfObjects(objects);
+          statistics.incrementReadOps(1);
         } else {
           break;
         }
@@ -363,6 +368,7 @@ public class S3AFileSystem extends FileSystem {
         DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket);
         deleteRequest.setKeys(keysToDelete);
         s3.deleteObjects(deleteRequest);
+        statistics.incrementWriteOps(1);
       }
     }
 
@@ -408,6 +414,7 @@ public class S3AFileSystem extends FileSystem {
       if (status.isEmptyDirectory()) {
         LOG.info("Deleting fake empty directory");
         s3.deleteObject(bucket, key);
+        statistics.incrementWriteOps(1);
       } else {
         LOG.info("Getting objects for prefix " + key);
 
@@ -420,6 +427,7 @@ public class S3AFileSystem extends FileSystem {
 
         List<DeleteObjectsRequest.KeyVersion> keys = new ArrayList<DeleteObjectsRequest.KeyVersion>();
         ObjectListing objects = s3.listObjects(request);
+        statistics.incrementReadOps(1);
         while (true) {
           for (S3ObjectSummary summary : objects.getObjectSummaries()) {
             keys.add(new DeleteObjectsRequest.KeyVersion(summary.getKey()));
@@ -429,10 +437,12 @@ public class S3AFileSystem extends FileSystem {
           DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket);
           deleteRequest.setKeys(keys);
           s3.deleteObjects(deleteRequest);
+          statistics.incrementWriteOps(1);
           keys.clear();
 
           if (objects.isTruncated()) {
             objects = s3.listNextBatchOfObjects(objects);
+            statistics.incrementReadOps(1);
           } else {
             break;
           }
@@ -441,6 +451,7 @@ public class S3AFileSystem extends FileSystem {
     } else {
       LOG.info("delete: Path is a file");
       s3.deleteObject(bucket, key);
+      statistics.incrementWriteOps(1);
     }
 
     createFakeDirectoryIfNecessary(f.getParent());
@@ -486,6 +497,7 @@ public class S3AFileSystem extends FileSystem {
       request.setMaxKeys(maxKeys);
 
       ObjectListing objects = s3.listObjects(request);
+      statistics.incrementReadOps(1);
 
       while (true) {
         for (S3ObjectSummary summary : objects.getObjectSummaries()) {
@@ -515,6 +527,7 @@ public class S3AFileSystem extends FileSystem {
 
         if (objects.isTruncated()) {
           objects = s3.listNextBatchOfObjects(objects);
+          statistics.incrementReadOps(1);
         } else {
           break;
         }
@@ -587,6 +600,7 @@ public class S3AFileSystem extends FileSystem {
     if (!key.isEmpty()) {
       try {
         ObjectMetadata meta = s3.getObjectMetadata(bucket, key);
+        statistics.incrementReadOps(1);
 
         LOG.info("Found exact file");
         if (objectRepresentsDirectory(key, meta.getContentLength())) {
@@ -605,6 +619,7 @@ public class S3AFileSystem extends FileSystem {
         try {
           String newKey = key + "/";
           ObjectMetadata meta = s3.getObjectMetadata(bucket, newKey);
+          statistics.incrementReadOps(1);
           LOG.info("Found with appended /");
 
           if (objectRepresentsDirectory(newKey, meta.getContentLength())) {
@@ -633,6 +648,7 @@ public class S3AFileSystem extends FileSystem {
       request.setMaxKeys(1);
 
       ObjectListing objects = s3.listObjects(request);
+      statistics.incrementReadOps(1);
       LOG.info("Request for prefix " + key + " returned " + objects.getCommonPrefixes().size() +
           " prefixes and " + objects.getObjectSummaries().size() + " summaries");
       for (S3ObjectSummary summary : objects.getObjectSummaries()) {
@@ -707,6 +723,8 @@ public class S3AFileSystem extends FileSystem {
     GetObjectMetadataRequest metadataRequest =
         new GetObjectMetadataRequest(bucket, srcKey);
     ObjectMetadata metadataResult = s3.getObjectMetadata(metadataRequest);
+    statistics.incrementReadOps(1);
+
     long objectSize = metadataResult.getContentLength();
 
     CopyObjectRequest copyObjectRequest = new CopyObjectRequest(bucket, srcKey, bucket, dstKey);
@@ -714,8 +732,9 @@ public class S3AFileSystem extends FileSystem {
 
     if (objectSize <= partSizeThreshold) {
       s3.copyObject(copyObjectRequest);
+      statistics.incrementWriteOps(1);
     } else {
-      S3ACopyTransferManager copyTransfer = new S3ACopyTransferManager(s3, partSize);
+      S3ACopyTransferManager copyTransfer = new S3ACopyTransferManager(s3, partSize, statistics);
       try {
         copyTransfer.copyObject(copyObjectRequest);
       } catch (InterruptedException e) {
@@ -768,6 +787,7 @@ public class S3AFileSystem extends FileSystem {
         if (status.isDirectory() && status.isEmptyDirectory()) {
           LOG.info("Deleting fake directory " + key + "/");
           s3.deleteObject(bucket, key + "/");
+          statistics.incrementWriteOps(1);
         }
       } catch (AmazonServiceException e) {}
 
@@ -798,6 +818,7 @@ public class S3AFileSystem extends FileSystem {
     PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, objectName, im, om);
     putObjectRequest.setCannedAcl(cannedACL);
     s3.putObject(putObjectRequest);
+    statistics.incrementWriteOps(1);
   }
 
   /**

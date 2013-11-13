@@ -32,6 +32,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PartETag;
 
 import org.apache.commons.logging.Log;
+import org.apache.hadoop.fs.FileSystem;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,8 +50,9 @@ public class S3ACopyTransferManager {
   private AmazonS3 s3;
   public static final Log LOG = S3AFileSystem.LOG;
   private long partSize;
+  private FileSystem.Statistics statistics;
 
-  S3ACopyTransferManager(AmazonS3 s3, long partSize) {
+  S3ACopyTransferManager(AmazonS3 s3, long partSize, FileSystem.Statistics statistics) {
     ThreadFactory threadFactory = new ThreadFactory() {
       private int threadCount = 1;
 
@@ -93,7 +95,7 @@ public class S3ACopyTransferManager {
           .withLastByte(bytePosition + copyPartSize - 1 >= objectSize ? objectSize - 1 : bytePosition + copyPartSize - 1)
           .withPartNumber(i);
 
-      tasks.add(new CopyPartCallable(s3, copyRequest));
+      tasks.add(new CopyPartCallable(s3, copyRequest, statistics));
       bytePosition += copyPartSize;
     }
 
@@ -134,13 +136,16 @@ public class S3ACopyTransferManager {
   public class CopyPartCallable implements Callable<PartETag> {
     private final AmazonS3 s3;
     private final CopyPartRequest request;
+    private FileSystem.Statistics statistics;
 
-    public CopyPartCallable(AmazonS3 s3, CopyPartRequest request) {
+    public CopyPartCallable(AmazonS3 s3, CopyPartRequest request, FileSystem.Statistics statistics) {
       this.s3 = s3;
       this.request = request;
+      this.statistics = statistics;
     }
 
     public PartETag call() throws Exception {
+      statistics.incrementWriteOps(1);
       return s3.copyPart(request).getPartETag();
     }
   }
