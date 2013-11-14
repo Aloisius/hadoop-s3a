@@ -20,6 +20,7 @@ package org.apache.hadoop.fs.s3a;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
+
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CompleteMultipartUploadResult;
@@ -30,6 +31,7 @@ import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PartETag;
+import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
 
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.fs.FileSystem;
@@ -38,7 +40,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
@@ -81,21 +82,28 @@ public class S3ACopyTransferManager {
 
     InitiateMultipartUploadResult initResult = s3.initiateMultipartUpload(initiateRequest);
 
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Initiating multipart copy request " + initResult.getUploadId());
+    }
+
     List<CopyPartCallable> tasks = new ArrayList<CopyPartCallable>();
 
     long bytePosition = 0;
     for (int i = 1; bytePosition < objectSize; i++) {
-      CopyPartRequest copyRequest = new CopyPartRequest()
-          .withDestinationBucketName(copyObjectRequest.getDestinationBucketName())
-          .withDestinationKey(copyObjectRequest.getDestinationKey())
-          .withSourceBucketName(copyObjectRequest.getSourceBucketName())
-          .withSourceKey(copyObjectRequest.getSourceKey())
-          .withUploadId(initResult.getUploadId())
-          .withFirstByte(bytePosition)
-          .withLastByte(bytePosition + copyPartSize - 1 >= objectSize ? objectSize - 1 : bytePosition + copyPartSize - 1)
-          .withPartNumber(i);
+      CopyPartRequest copyPartRequest = new CopyPartRequest();
+      copyPartRequest.setDestinationBucketName(copyObjectRequest.getDestinationBucketName());
+      copyPartRequest.setDestinationKey(copyObjectRequest.getDestinationKey());
+      copyPartRequest.setSourceBucketName(copyObjectRequest.getSourceBucketName());
+      copyPartRequest.setSourceKey(copyObjectRequest.getSourceKey());
+      copyPartRequest.setUploadId(initResult.getUploadId());
+      copyPartRequest.setFirstByte(bytePosition);
+      copyPartRequest.setLastByte(bytePosition + copyPartSize - 1 >= objectSize ? objectSize - 1 : bytePosition + copyPartSize - 1);
+      copyPartRequest.setPartNumber(i);
 
-      tasks.add(new CopyPartCallable(s3, copyRequest, statistics));
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Queuing part #" + i + " range " + copyPartRequest.getFirstByte() + "-" + copyPartRequest.getLastByte());
+      }
+      tasks.add(new CopyPartCallable(s3, copyPartRequest, statistics));
       bytePosition += copyPartSize;
     }
 
@@ -109,20 +117,25 @@ public class S3ACopyTransferManager {
 
       try {
         partETags.add(future.get());
-      } catch (ExecutionException e) {
-          Throwable t = e.getCause();
-          if (t instanceof AmazonClientException) throw (AmazonClientException)t;
-          throw new AmazonClientException("Unable to complete copy: " + t.getMessage(), t);
       } catch (Exception e) {
-        throw new AmazonClientException("Unable to copy part: " + e.getCause().getMessage(), e.getCause());
+        try {
+          s3.abortMultipartUpload(new AbortMultipartUploadRequest(copyObjectRequest.getDestinationBucketName(),
+              copyObjectRequest.getDestinationKey(), initResult.getUploadId()));
+        } catch (Exception e2) {
+          LOG.info("Unable to abort multipart upload, you may need to manually remove uploaded parts: " + e2.getMessage(), e2);
+        }
+
+        Throwable t = e.getCause();
+        if (t instanceof AmazonClientException) throw (AmazonClientException)t;
+        throw new AmazonClientException("Unable to complete copy: " + t.getMessage(), t);
       }
     }
 
     CompleteMultipartUploadRequest completeRequest = new
         CompleteMultipartUploadRequest(copyObjectRequest.getDestinationBucketName(), copyObjectRequest.getDestinationKey(),
         initResult.getUploadId(), partETags);
-
     CompleteMultipartUploadResult completeUploadResponse = s3.completeMultipartUpload(completeRequest);
+
     CopyObjectResult result = new CopyObjectResult();
     result.setETag(completeUploadResponse.getETag());
     result.setExpirationTime(completeUploadResponse.getExpirationTime());
@@ -130,6 +143,7 @@ public class S3ACopyTransferManager {
     result.setLastModifiedDate(srcMeta.getLastModified());
     result.setServerSideEncryption(completeUploadResponse.getServerSideEncryption());
     result.setVersionId(completeUploadResponse.getVersionId());
+
     return result;
   }
 
@@ -145,6 +159,9 @@ public class S3ACopyTransferManager {
     }
 
     public PartETag call() throws Exception {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Calling copyPart for part #" + request.getPartNumber());
+      }
       statistics.incrementWriteOps(1);
       return s3.copyPart(request).getPartETag();
     }

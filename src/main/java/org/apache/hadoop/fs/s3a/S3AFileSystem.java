@@ -36,13 +36,15 @@ import com.amazonaws.auth.BasicAWSCredentials;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
-import com.amazonaws.services.s3.model.CopyPartResult;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
+import com.amazonaws.services.s3.model.MultipartUpload;
+import com.amazonaws.services.s3.model.MultipartUploadListing;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PartETag;
+import com.amazonaws.services.s3.model.Owner;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
@@ -51,6 +53,7 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
+import com.amazonaws.services.s3.model.ListMultipartUploadsRequest;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -109,15 +112,14 @@ public class S3AFileSystem extends FileSystem {
     }
 
     if (accessKey != null && secretKey != null) {
-      LOG.info("Using accessKey");
+      LOG.info("Using accessKey for s3a");
       credentials = new BasicAWSCredentials(accessKey, secretKey);
     } else {
-      LOG.info("Using anonymous credentials");
+      LOG.info("Using anonymous credentials for s3a");
       credentials = new AnonymousAWSCredentials();
     }
 
     bucket = name.getHost();
-    LOG.info("Bucket set to " + bucket);
 
     ClientConfiguration awsConf = new ClientConfiguration();
     awsConf.setMaxConnections(conf.getInt(MAXIMUM_CONNECTIONS, DEFAULT_MAXIMUM_CONNECTIONS));
@@ -136,6 +138,44 @@ public class S3AFileSystem extends FileSystem {
       cannedACL = CannedAccessControlList.valueOf(cannedACLName);
     } else {
       cannedACL = null;
+    }
+
+    if (!s3.doesBucketExist(bucket)) {
+      throw new IOException("Bucket " + bucket + " does not exist");
+    }
+
+    boolean purgeExistingMultipart = conf.getBoolean(PURGE_EXISTING_MULTIPART, DEFAULT_PURGE_EXISTING_MULTIPART);
+    long purgeExistingMultipartAge = conf.getLong(PURGE_EXISTING_MULTIPART_AGE, DEFAULT_PURGE_EXISTING_MULTIPART_AGE);
+
+    ListMultipartUploadsRequest listMultipartUploadsRequest = new ListMultipartUploadsRequest(bucket);
+    MultipartUploadListing multipartUploadListing = s3.listMultipartUploads(listMultipartUploadsRequest);
+
+    Date now = new Date();
+    Owner accountOwner = s3.getS3AccountOwner();
+    List<MultipartUpload> multipartUploads = multipartUploadListing.getMultipartUploads();
+
+    if (multipartUploads.size() >= multipartUploadListing.getMaxUploads() * 0.9) {
+      LOG.warn("Multipart max uploads limit > 90% reached " + multipartUploads.size() + "/" + multipartUploadListing.getMaxUploads());
+    }
+
+    if (purgeExistingMultipart) {
+      for (MultipartUpload upload : multipartUploads) {
+        // Limit ourselves to the same owner in order to deal with shared buckets like the aws-publicdatasets
+        if (accountOwner.equals(upload.getInitiator())) {
+          if (now.getTime() - upload.getInitiated().getTime() >= purgeExistingMultipartAge*1000) {
+            LOG.info("Deleting existing multipart upload " + upload.getUploadId() + " for " + upload.getKey() +
+                " initiated " + upload.getInitiated() + " by " + upload.getInitiator());
+            try {
+              s3.abortMultipartUpload(new AbortMultipartUploadRequest(bucket, upload.getKey(), upload.getUploadId()));
+            } catch (Exception e2) {
+              LOG.info("Unable to abort multipart upload, you may need to manually remove uploaded parts: " + e2.getMessage(), e2);
+            }
+          } else {
+            long delta = now.getTime() - upload.getInitiated().getTime();
+            LOG.info("Delta isn't big enough " + delta + " < " + purgeExistingMultipartAge*1000);
+          }
+        }
+      }
     }
 
     setConf(conf);
@@ -254,7 +294,7 @@ public class S3AFileSystem extends FileSystem {
    * @return true if rename is successful
    */
   public boolean rename(Path src, Path dst) throws IOException {
-    LOG.info("rename: rename " + src + " to " + dst);
+    LOG.info("Rename path " + src + " to " + dst);
 
     String srcKey = pathToKey(src);
     String dstKey = pathToKey(dst);
@@ -287,6 +327,7 @@ public class S3AFileSystem extends FileSystem {
       }
 
       if (srcStatus.isDirectory() && dstStatus.isFile()) {
+        LOG.info("rename: src is a directory and dst is a file");
         return false;
       }
 
@@ -310,48 +351,44 @@ public class S3AFileSystem extends FileSystem {
 
     // Ok! Time to start
     if (srcStatus.isFile()) {
-      LOG.info("rename: renaming file " + src + " to " + dst);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("rename: renaming file " + src + " to " + dst);
+      }
       copyFile(srcKey, dstKey);
       delete(src, false);
     } else {
-      LOG.info("rename: renaming directory " + src + " to " + dst);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("rename: renaming directory " + src + " to " + dst);
+      }
 
       // This is a directory to directory copy
       if (!dstKey.endsWith("/")) {
         dstKey = dstKey + "/";
       }
+
       if (!srcKey.endsWith("/")) {
         srcKey = srcKey + "/";
       }
 
       List<DeleteObjectsRequest.KeyVersion> keysToDelete = new ArrayList<DeleteObjectsRequest.KeyVersion>();
       if (dstStatus != null && dstStatus.isEmptyDirectory()) {
-        LOG.info("dstStatus is empty directory");
         copyFile(srcKey, dstKey);
         statistics.incrementWriteOps(1);
         keysToDelete.add(new DeleteObjectsRequest.KeyVersion(srcKey));
       }
 
-      if (dstStatus != null) {
-        LOG.info("dstStatus is not null empty? " + dstStatus.isEmptyDirectory());
-      }
-
       ListObjectsRequest request = new ListObjectsRequest();
       request.setBucketName(bucket);
       request.setPrefix(srcKey);
-      // Hopefully not setting a delimiter will cause this to find everything
-      // request.setDelimiter("/");
       request.setMaxKeys(maxKeys);
 
-
-      LOG.info("rename: " + bucket + " " + srcKey + ": " + request);
       ObjectListing objects = s3.listObjects(request);
       statistics.incrementReadOps(1);
+
       while (true) {
         for (S3ObjectSummary summary : objects.getObjectSummaries()) {
           keysToDelete.add(new DeleteObjectsRequest.KeyVersion(summary.getKey()));
           String newDstKey = dstKey + summary.getKey().substring(srcKey.length());
-          LOG.info("rename: copyFile " + summary.getKey() + " to " + newDstKey);
           copyFile(summary.getKey(), newDstKey);
         }
 
@@ -389,19 +426,24 @@ public class S3AFileSystem extends FileSystem {
    * @throws IOException
    */
   public boolean delete(Path f, boolean recursive) throws IOException {
-    LOG.info("delete: Delete called with " + f + " - recursive " + recursive);
+    LOG.info("Delete path " + f + " - recursive " + recursive);
     S3AFileStatus status;
     try {
       status = getFileStatus(f);
     } catch (FileNotFoundException e) {
-      LOG.info("Couldn't delete " + f + " - does not exist");
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Couldn't delete " + f + " - does not exist");
+      }
       return false;
     }
 
     String key = pathToKey(f);
 
     if (status.isDirectory()) {
-      LOG.info("delete: Path is a directory");
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("delete: Path is a directory");
+      }
+
       if (!recursive) {
         throw new IOException("Path is a folder: " + f);
       }
@@ -410,13 +452,16 @@ public class S3AFileSystem extends FileSystem {
         key = key + "/";
       }
 
-      LOG.info("delete: Going to delete directory" + f);
       if (status.isEmptyDirectory()) {
-        LOG.info("Deleting fake empty directory");
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Deleting fake empty directory");
+        }
         s3.deleteObject(bucket, key);
         statistics.incrementWriteOps(1);
       } else {
-        LOG.info("Getting objects for prefix " + key);
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Getting objects for directory prefix " + key + " to delete");
+        }
 
         ListObjectsRequest request = new ListObjectsRequest();
         request.setBucketName(bucket);
@@ -431,7 +476,9 @@ public class S3AFileSystem extends FileSystem {
         while (true) {
           for (S3ObjectSummary summary : objects.getObjectSummaries()) {
             keys.add(new DeleteObjectsRequest.KeyVersion(summary.getKey()));
-            LOG.info("Got object " + summary.getKey());
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Got object to delete " + summary.getKey());
+            }
           }
 
           DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket);
@@ -449,7 +496,9 @@ public class S3AFileSystem extends FileSystem {
         }
       }
     } else {
-      LOG.info("delete: Path is a file");
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("delete: Path is a file");
+      }
       s3.deleteObject(bucket, key);
       statistics.incrementWriteOps(1);
     }
@@ -462,7 +511,9 @@ public class S3AFileSystem extends FileSystem {
   private void createFakeDirectoryIfNecessary(Path f) throws IOException {
     String key = pathToKey(f);
     if (!key.isEmpty() && !exists(f)) {
-      LOG.info("Creating new fake directory at " + f);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Creating new fake directory at " + f);
+      }
       createFakeDirectory(bucket, key);
     }
   }
@@ -479,7 +530,7 @@ public class S3AFileSystem extends FileSystem {
   public FileStatus[] listStatus(Path f) throws FileNotFoundException,
       IOException {
     String key = pathToKey(f);
-    LOG.info("listStatus: " + f);
+    LOG.info("List status for path: " + f);
 
     final List<FileStatus> result = new ArrayList<FileStatus>();
     final FileStatus fileStatus =  getFileStatus(f);
@@ -489,12 +540,15 @@ public class S3AFileSystem extends FileSystem {
         key = key + "/";
       }
 
-      LOG.info("listStatus: doing listObjects for directory " + key);
       ListObjectsRequest request = new ListObjectsRequest();
       request.setBucketName(bucket);
       request.setPrefix(key);
       request.setDelimiter("/");
       request.setMaxKeys(maxKeys);
+
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("listStatus: doing listObjects for directory " + key);
+      }
 
       ObjectListing objects = s3.listObjects(request);
       statistics.incrementReadOps(1);
@@ -504,15 +558,22 @@ public class S3AFileSystem extends FileSystem {
           Path keyPath = keyToPath(summary.getKey()).makeQualified(uri, workingDir);
           // Skip over keys that are ourselves and old S3N _$folder$ files
           if (keyPath.equals(f) || summary.getKey().endsWith(S3N_FOLDER_SUFFIX)) {
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Ignoring: " + keyPath);
+            }
             continue;
           }
 
           if (objectRepresentsDirectory(summary.getKey(), summary.getSize())) {
             result.add(new S3AFileStatus(true, true, keyPath));
-            LOG.info("Adding: fd: " + keyPath);
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Adding: fd: " + keyPath);
+            }
           } else {
             result.add(new S3AFileStatus(summary.getSize(), dateToLong(summary.getLastModified()), keyPath));
-            LOG.info("Adding: fi: " + keyPath);
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Adding: fi: " + keyPath);
+            }
           }
         }
 
@@ -522,7 +583,9 @@ public class S3AFileSystem extends FileSystem {
             continue;
           }
           result.add(new S3AFileStatus(true, false, keyPath));
-          LOG.info("Adding: rd: " + keyPath);
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Adding: rd: " + keyPath);
+          }
         }
 
         if (objects.isTruncated()) {
@@ -533,7 +596,9 @@ public class S3AFileSystem extends FileSystem {
         }
       }
     } else {
-      LOG.info("listStatus: not a directory, just adding main fileStatus");
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Adding: rd (not a dir): " + f);
+      }
       result.add(fileStatus);
     }
 
@@ -569,7 +634,8 @@ public class S3AFileSystem extends FileSystem {
    */
   // TODO: If we have created an empty file at /foo/bar and we then call mkdirs for /foo/bar/baz/roo what happens to the empty file /foo/bar/?
   public boolean mkdirs(Path f, FsPermission permission) throws IOException {
-    LOG.info("mkdirs: " + f);
+    LOG.info("Making directory: " + f);
+
     try {
       FileStatus fileStatus = getFileStatus(f);
 
@@ -595,48 +661,65 @@ public class S3AFileSystem extends FileSystem {
   public S3AFileStatus getFileStatus(Path f) throws IOException {
     String key = pathToKey(f);
 
-    LOG.info("Getting file status for " + f + " (" + key + ")");
+    LOG.info("Getting path status for " + f + " (" + key + ")");
 
     if (!key.isEmpty()) {
       try {
         ObjectMetadata meta = s3.getObjectMetadata(bucket, key);
         statistics.incrementReadOps(1);
 
-        LOG.info("Found exact file");
         if (objectRepresentsDirectory(key, meta.getContentLength())) {
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Found exact file: fake directory");
+          }
           return new S3AFileStatus(true, true, f.makeQualified(uri, workingDir));
         } else {
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Found exact file: normal file");
+          }
           return new S3AFileStatus(meta.getContentLength(), dateToLong(meta.getLastModified()),
               f.makeQualified(uri, workingDir));
         }
+      } catch (AmazonServiceException e) {
+        if (e.getStatusCode() != 404) {
+          printAmazonServiceException(e);
+          throw e;
+        }
       } catch (AmazonClientException e) {
-        //
+        printAmazonClientException(e);
+        throw e;
       }
 
       // Necessary?
       if (!key.endsWith("/")) {
-        LOG.info("Testing with appended /");
         try {
           String newKey = key + "/";
           ObjectMetadata meta = s3.getObjectMetadata(bucket, newKey);
           statistics.incrementReadOps(1);
-          LOG.info("Found with appended /");
 
           if (objectRepresentsDirectory(newKey, meta.getContentLength())) {
-            LOG.info("Object represents a directory");
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Found file (with /): fake directory");
+            }
             return new S3AFileStatus(true, true, f.makeQualified(uri, workingDir));
           } else {
-            LOG.info("Object isn't a directory?");
+            LOG.warn("Found file (with /): real file? should not happen: " + key);
+
             return new S3AFileStatus(meta.getContentLength(), dateToLong(meta.getLastModified()),
                 f.makeQualified(uri, workingDir));
           }
+        } catch (AmazonServiceException e) {
+          if (e.getStatusCode() != 404) {
+            printAmazonServiceException(e);
+            throw e;
+          }
         } catch (AmazonClientException e) {
-          //
+          printAmazonClientException(e);
+          throw e;
         }
       }
     }
 
-    LOG.info("Looking using list: " + key);
     try {
       if (!key.isEmpty() && !key.endsWith("/")) {
         key = key + "/";
@@ -649,22 +732,34 @@ public class S3AFileSystem extends FileSystem {
 
       ObjectListing objects = s3.listObjects(request);
       statistics.incrementReadOps(1);
-      LOG.info("Request for prefix " + key + " returned " + objects.getCommonPrefixes().size() +
-          " prefixes and " + objects.getObjectSummaries().size() + " summaries");
-      for (S3ObjectSummary summary : objects.getObjectSummaries()) {
-        LOG.info("DEBUG: Summary: " + summary.getKey() + " " + summary.getSize());
-      }
-      for (String prefix : objects.getCommonPrefixes()) {
-        LOG.info("DEBUG: Prefix: " + prefix);
-      }
+
       if (objects.getCommonPrefixes().size() > 0 || objects.getObjectSummaries().size() > 0) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Found path as directory (with /): " + objects.getCommonPrefixes().size() + "/" + objects.getObjectSummaries().size());
+
+          for (S3ObjectSummary summary : objects.getObjectSummaries()) {
+            LOG.debug("Summary: " + summary.getKey() + " " + summary.getSize());
+          }
+          for (String prefix : objects.getCommonPrefixes()) {
+            LOG.debug("Prefix: " + prefix);
+          }
+        }
+
         return new S3AFileStatus(true, false, f.makeQualified(uri, workingDir));
       }
+    } catch (AmazonServiceException e) {
+      if (e.getStatusCode() != 404) {
+        printAmazonServiceException(e);
+        throw e;
+      }
     } catch (AmazonClientException e) {
-      //
+      printAmazonClientException(e);
+      throw e;
     }
 
-    LOG.info("Not Found: " + f);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Not Found: " + f);
+    }
     throw new FileNotFoundException("No such file or directory: " + f);
   }
 
@@ -672,7 +767,8 @@ public class S3AFileSystem extends FileSystem {
    * The src file is on the local disk.  Add it to FS at
    * the given dst name.
    *
-   * This version doesn't need to create a temporary file to calculate the md5
+   * This version doesn't need to create a temporary file to calculate the md5. Sadly this doesn't seem to be
+   * used by the shell cp :(
    *
    * delSrc indicates if the source should be removed
    * @param delSrc whether to delete the src
@@ -688,7 +784,7 @@ public class S3AFileSystem extends FileSystem {
       throw new IOException(dst + " already exists");
     }
 
-    LOG.info("copyFromLocalFile " + src + " -> " + dst);
+    LOG.info("Copying local file from " + src + " to " + dst);
 
     // Since we have a local file, we don't need to stream into a temporary file
     LocalFileSystem local = getLocal(getConf());
@@ -701,7 +797,10 @@ public class S3AFileSystem extends FileSystem {
     TransferManager transfers = new TransferManager(s3);
     transfers.setConfiguration(transferConfiguration);
 
-    Upload up = transfers.upload(bucket, key, srcfile);
+    PutObjectRequest putObjectRequest = new PutObjectRequest(bucket, key, srcfile);
+    putObjectRequest.setCannedAcl(cannedACL);
+
+    Upload up = transfers.upload(putObjectRequest);
     try {
       up.waitForUploadResult();
     } catch (InterruptedException e) {
@@ -717,7 +816,9 @@ public class S3AFileSystem extends FileSystem {
   }
 
   private void copyFile(String srcKey, String dstKey) throws IOException {
-    LOG.info("copyFile " + srcKey + " -> " + dstKey);
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("copyFile " + srcKey + " -> " + dstKey);
+    }
 
     // It would be nice if the AWS TransferManager did this for us :/
     GetObjectMetadataRequest metadataRequest =
@@ -741,20 +842,6 @@ public class S3AFileSystem extends FileSystem {
         throw new IOException("Got interrupted while trying to copy");
       }
     }
-  }
-
-  // Helper function that constructs ETags.
-  private static List<PartETag> GetETags(List<CopyPartResult> responses) {
-    List<PartETag> etags = new ArrayList<PartETag>();
-    for (CopyPartResult response : responses) {
-      etags.add(new PartETag(response.getPartNumber(), response.getETag()));
-    }
-    return etags;
-  }
-
-
-  private boolean objectRepresentsDirectory(final S3ObjectSummary os) {
-    return objectRepresentsDirectory(os.getKey(), os.getSize());
   }
 
   private boolean objectRepresentsDirectory(final String name, final long size) {
@@ -785,18 +872,26 @@ public class S3AFileSystem extends FileSystem {
         S3AFileStatus status = getFileStatus(f);
 
         if (status.isDirectory() && status.isEmptyDirectory()) {
-          LOG.info("Deleting fake directory " + key + "/");
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Deleting fake directory " + key + "/");
+          }
           s3.deleteObject(bucket, key + "/");
           statistics.incrementWriteOps(1);
         }
+      } catch (FileNotFoundException e) {
       } catch (AmazonServiceException e) {}
+
+      if (f.isRoot()) {
+        break;
+      }
 
       f = f.getParent();
     }
   }
 
 
-  private void createFakeDirectory(final String bucketName, final String objectName) {
+  private void createFakeDirectory(final String bucketName, final String objectName)
+      throws AmazonClientException, AmazonServiceException {
     if (!objectName.endsWith("/")) {
       createEmptyObject(bucketName, objectName + "/");
     } else {
@@ -805,7 +900,8 @@ public class S3AFileSystem extends FileSystem {
   }
 
   // Used to create an empty file that represents an empty directory
-  private void createEmptyObject(final String bucketName, final String objectName) {
+  private void createEmptyObject(final String bucketName, final String objectName)
+      throws AmazonClientException, AmazonServiceException {
     final InputStream im = new InputStream() {
       @Override
       public int read() throws IOException {

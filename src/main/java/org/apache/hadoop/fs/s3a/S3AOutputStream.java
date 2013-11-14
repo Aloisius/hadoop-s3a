@@ -79,7 +79,7 @@ public class S3AOutputStream extends OutputStream {
     backupFile.deleteOnExit();
     closed = false;
 
-    LOG.info("OutputStream for key '" + key + "' writing to tempfile '" + this.backupFile + "'");
+    LOG.info("OutputStream for key '" + key + "' writing to tempfile: " + this.backupFile);
 
     this.backupStream = new BufferedOutputStream(new FileOutputStream(backupFile));
   }
@@ -117,7 +117,9 @@ public class S3AOutputStream extends OutputStream {
 
       long delta = up.getProgress().getBytesTransferred() - listener.getLastBytesTransferred();
       if (statistics != null && delta != 0) {
-        LOG.info("S3A write delta changed after finished: " + delta + " bytes");
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("S3A write delta changed after finished: " + delta + " bytes");
+        }
         statistics.incrementBytesWritten(delta);
       }
 
@@ -171,7 +173,9 @@ public class S3AOutputStream extends OutputStream {
       long delta = progressEvent.getBytesTransferred() - lastBytesTransferred;
       if (statistics != null && delta != 0) {
         statistics.incrementBytesWritten(delta);
-        LOG.info("S3A write delta: " + delta + " bytes");
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("S3A write delta: " + delta + " bytes");
+        }
       }
 
       lastBytesTransferred = progressEvent.getBytesTransferred();

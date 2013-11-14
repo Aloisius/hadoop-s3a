@@ -30,7 +30,7 @@ public class S3AConstants {
   public static final boolean DEFAULT_SECURE_CONNECTIONS = true;
 
   public static final String MAX_ERROR_RETRIES = "fs.s3a.maxErrorRetries";
-  public static final int DEFAULT_MAX_ERROR_RETRIES = 5;
+  public static final int DEFAULT_MAX_ERROR_RETRIES = 10;
 
   public static final String SOCKET_TIMEOUT = "fs.s3a.socketTimeout";
   public static final int DEFAULT_SOCKET_TIMEOUT = 50000;
@@ -50,4 +50,9 @@ public class S3AConstants {
   public static final String CANNED_ACL = "fs.s3a.cannedACL";
   public static final String DEFAULT_CANNED_ACL = "";
 
+  public static final String PURGE_EXISTING_MULTIPART = "fs.s3a.purgeExistingMultiPart";
+  public static final boolean DEFAULT_PURGE_EXISTING_MULTIPART = false;
+
+  public static final String PURGE_EXISTING_MULTIPART_AGE = "fs.s3a.purgeExistingMultiPartAge";
+  public static final long DEFAULT_PURGE_EXISTING_MULTIPART_AGE = 86400;
 }

@@ -75,15 +75,16 @@ Tunable parameters
 These may or may not improve performance. The defaults were set without 
 much testing.
 
-- fs.s3a.maxConnections - Controls how many parallel connections HttpClient spawns
-- fs.s3a.secureConnections - Enables or disables SSL connections to S3
-- fs.s3a.maxErrorRetries - How many times we should retry commands on transient errors
-- fs.s3a.socketTimeout - Socket connect timeout
-- fs.s3a.maxPagingKeys - How many keys to request from S3 when doing directory listings at a time
-- fs.s3a.multipartSize - How big (in bytes) to split a upload or copy operation up into
-- fs.s3a.minMultipartSize - Until a file is this large (in bytes), use non-parallel upload/copy
+- fs.s3a.maxConnections - Controls how many parallel connections HttpClient spawns (default: 50)
+- fs.s3a.secureConnections - Enables or disables SSL connections to S3 (default: true)
+- fs.s3a.maxErrorRetries - How many times we should retry commands on transient errors (default: 10)
+- fs.s3a.socketTimeout - Socket connect timeout (default: 5000)
+- fs.s3a.maxPagingKeys - How many keys to request from S3 when doing directory listings at a time (default: 5000)
+- fs.s3a.multipartSize - How big (in bytes) to split a upload or copy operation up into (default: 5 * 1024 * 1024)
+- fs.s3a.minMultipartSize - Until a file is this large (in bytes), use non-parallel upload/copy (default: 5 * 1024 * 1024)
 - fs.s3a.cannedACL - Set a canned ACL on newly created/copied objects (private | public-read | public-read-write | authenticated-read | log-delivery-write | bucket-owner-read | bucket-owner-full-control)
-
+- fs.s3a.purgeExistingMultiPart - True if you want to purge existing multipart uploads that may not have been completed/aborted correctly (default: false)
+- fs.s3a.purgeExistingMultiPartAge - Minimum age in seconds of multipart uploads to purge (default: 86400)
 
 Caveats
 -------
@@ -124,3 +125,6 @@ count bytes written when we start the upload (as opposed to the write
 calls to the temporary local file). The driver also counts read & write 
 ops, but they are done mostly to keep from timing out on large s3 
 operations.
+
+This is currently implemented as a FileSystem and not a 
+AbstractFileSystem.
