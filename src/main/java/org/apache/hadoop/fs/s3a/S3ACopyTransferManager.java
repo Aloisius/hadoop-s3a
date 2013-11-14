@@ -66,6 +66,7 @@ public class S3ACopyTransferManager {
     this.threadPool = (ThreadPoolExecutor) Executors.newFixedThreadPool(10, threadFactory);
     this.s3 = s3;
     this.partSize = partSize;
+    this.statistics = statistics;
   }
 
   public CopyObjectResult copyObject(CopyObjectRequest copyObjectRequest)
@@ -125,7 +126,7 @@ public class S3ACopyTransferManager {
           LOG.info("Unable to abort multipart upload, you may need to manually remove uploaded parts: " + e2.getMessage(), e2);
         }
 
-        LOG.info("Caught exception while trying to get output result " + e, e);
+        LOG.info("Caught exception while trying to get output result", e);
         Throwable t = e.getCause();
         if (t instanceof AmazonClientException) throw (AmazonClientException)t;
         throw new AmazonClientException("Unable to complete copy: " + t.getClass() + ": " + t.getMessage(), t);
@@ -163,6 +164,7 @@ public class S3ACopyTransferManager {
       if (LOG.isDebugEnabled()) {
         LOG.debug("Calling copyPart for part #" + request.getPartNumber());
       }
+
       statistics.incrementWriteOps(1);
       return s3.copyPart(request).getPartETag();
     }
