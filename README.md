@@ -14,6 +14,7 @@ Features:
 - Parallel copy (rename)
 - AWS S3 explorer compatible empty directories using xyz/ instead of xyz_$folder$
 - Ignores _$folder$ files created by s3native and other S3 browsing utilities
+- Supports multiple buffer dirs to even out IO
 
 
 Build Instructions
@@ -86,6 +87,7 @@ much testing.
 - fs.s3a.cannedACL - Set a canned ACL on newly created/copied objects (private | public-read | public-read-write | authenticated-read | log-delivery-write | bucket-owner-read | bucket-owner-full-control)
 - fs.s3a.purgeExistingMultiPart - True if you want to purge existing multipart uploads that may not have been completed/aborted correctly (default: false)
 - fs.s3a.purgeExistingMultiPartAge - Minimum age in seconds of multipart uploads to purge (default: 86400)
+- fs.s3a.buffer.dir - Comma separated list of directories that will be used to buffer file writes out of (default: uses fs.s3.buffer.dir)
 
 Caveats
 -------
