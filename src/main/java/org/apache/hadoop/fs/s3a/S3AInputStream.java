@@ -27,6 +27,7 @@ import org.apache.hadoop.fs.FSInputStream;
 import org.apache.hadoop.fs.FileSystem;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 
 public class S3AInputStream extends FSInputStream {
   private long pos;
@@ -62,13 +63,6 @@ public class S3AInputStream extends FSInputStream {
 
   private void reopen(long pos) throws IOException {
     if (wrappedStream != null) {
-      if (this.pos == pos) {
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("Asked to reopen stream to the same position " + pos);
-        }
-        return;
-      }
-
       if (LOG.isDebugEnabled()) {
         LOG.debug("Aborting old stream to open at pos " + pos);
       }
@@ -118,10 +112,19 @@ public class S3AInputStream extends FSInputStream {
 
     openIfNeeded();
 
-    int byteRead = wrappedStream.read();
+    int byteRead;
+    try {
+      byteRead = wrappedStream.read();
+    } catch (SocketTimeoutException e) {
+      LOG.info("Got timeout while trying to read from stream, trying to recover");
+      reopen(pos);
+      byteRead = wrappedStream.read();
+    }
+
     if (byteRead >= 0) {
       pos++;
     }
+
     if (stats != null && byteRead >= 0) {
       stats.incrementBytesRead(1);
     }
@@ -136,15 +139,24 @@ public class S3AInputStream extends FSInputStream {
 
     openIfNeeded();
 
-    int result = wrappedStream.read(buf, off, len);
-    if (result > 0) {
-      pos += result;
-    }
-    if (stats != null && result > 0) {
-      stats.incrementBytesRead(result);
+    int byteRead;
+    try {
+      byteRead = wrappedStream.read(buf, off, len);
+    } catch (SocketTimeoutException e) {
+      LOG.info("Got timeout while trying to read from stream, trying to recover");
+      reopen(pos);
+      byteRead = wrappedStream.read(buf, off, len);
     }
 
-    return result;
+    if (byteRead > 0) {
+      pos += byteRead;
+    }
+
+    if (stats != null && byteRead > 0) {
+      stats.incrementBytesRead(byteRead);
+    }
+
+    return byteRead;
   }
 
   @Override
