@@ -109,13 +109,13 @@ public class S3AOutputStream extends OutputStream {
       PutObjectRequest putObjectRequest = new PutObjectRequest(bucket, key, backupFile);
       putObjectRequest.setCannedAcl(cannedACL);
 
-      Upload up = transfers.upload(putObjectRequest);
-      ProgressableProgressListener listener = new ProgressableProgressListener(progress, statistics);
-      up.addProgressListener(listener);
+      Upload upload = transfers.upload(putObjectRequest);
+      ProgressableProgressListener listener = new ProgressableProgressListener(upload, progress, statistics);
+      upload.addProgressListener(listener);
 
-      up.waitForUploadResult();
+      upload.waitForUploadResult();
 
-      long delta = up.getProgress().getBytesTransferred() - listener.getLastBytesTransferred();
+      long delta = upload.getProgress().getBytesTransferred() - listener.getLastBytesTransferred();
       if (statistics != null && delta != 0) {
         if (LOG.isDebugEnabled()) {
           LOG.debug("S3A write delta changed after finished: " + delta + " bytes");
@@ -152,8 +152,10 @@ public class S3AOutputStream extends OutputStream {
     private Progressable progress;
     private FileSystem.Statistics statistics;
     private long lastBytesTransferred;
+    private Upload upload;
 
-    public ProgressableProgressListener(Progressable progress, FileSystem.Statistics statistics) {
+    public ProgressableProgressListener(Upload upload, Progressable progress, FileSystem.Statistics statistics) {
+      this.upload = upload;
       this.progress = progress;
       this.statistics = statistics;
       this.lastBytesTransferred = 0;
@@ -170,7 +172,7 @@ public class S3AOutputStream extends OutputStream {
         statistics.incrementWriteOps(1);
       }
 
-      long delta = progressEvent.getBytesTransferred() - lastBytesTransferred;
+      long delta = upload.getProgress().getBytesTransferred() - lastBytesTransferred;
       if (statistics != null && delta != 0) {
         statistics.incrementBytesWritten(delta);
         if (LOG.isDebugEnabled()) {
