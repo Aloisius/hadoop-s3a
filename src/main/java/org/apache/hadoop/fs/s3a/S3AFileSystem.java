@@ -169,6 +169,7 @@ public class S3AFileSystem extends FileSystem {
     }
 
     if (purgeExistingMultipart) {
+      int aborted = 0;
       for (MultipartUpload upload : multipartUploads) {
         // Limit ourselves to the same owner in order to deal with shared buckets like the aws-publicdatasets
         if (accountOwner.equals(upload.getInitiator())) {
@@ -177,14 +178,30 @@ public class S3AFileSystem extends FileSystem {
                 " initiated " + upload.getInitiated() + " by " + upload.getInitiator());
             try {
               s3.abortMultipartUpload(new AbortMultipartUploadRequest(bucket, upload.getKey(), upload.getUploadId()));
+              aborted++;
             } catch (Exception e2) {
               LOG.info("Unable to abort multipart upload, you may need to manually remove uploaded parts: " + e2.getMessage(), e2);
             }
           } else {
-            long delta = now.getTime() - upload.getInitiated().getTime();
-            LOG.info("Delta isn't big enough " + delta + " < " + purgeExistingMultipartAge*1000);
+            if (LOG.isDebugEnabled()) {
+              LOG.info("Existing new multipart upload " + upload.getUploadId() + " for " + upload.getKey() +
+                  " initiated " + upload.getInitiated() + " by " + upload.getInitiator());
+            }
+          }
+        } else {
+          if (LOG.isDebugEnabled()) {
+            LOG.info("Existing multipart upload " + upload.getUploadId() + " for " + upload.getKey() +
+                " initiated " + upload.getInitiated() + " by " + upload.getInitiator());
           }
         }
+      }
+
+      if (aborted > 0 && multipartUploads.size() - aborted >= multipartUploadListing.getMaxUploads() * 0.9) {
+        LOG.warn("Multipart max uploads limit > 90% reached even after aborting - raising partSize to limit multipart usage");
+        partSize = Math.max(partSize, (long)1 * 1024 * 1024 * 1024);
+        partSizeThreshold = (int)partSize;
+        conf.setLong(MULTIPART_SIZE, partSize);
+        conf.setInt(MIN_MULTIPART_THRESHOLD, partSizeThreshold);
       }
     }
 
