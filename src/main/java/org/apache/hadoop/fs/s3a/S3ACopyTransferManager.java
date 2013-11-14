@@ -125,9 +125,10 @@ public class S3ACopyTransferManager {
           LOG.info("Unable to abort multipart upload, you may need to manually remove uploaded parts: " + e2.getMessage(), e2);
         }
 
+        LOG.info("Caught exception while trying to get output result " + e, e);
         Throwable t = e.getCause();
         if (t instanceof AmazonClientException) throw (AmazonClientException)t;
-        throw new AmazonClientException("Unable to complete copy: " + t.getMessage(), t);
+        throw new AmazonClientException("Unable to complete copy: " + t.getClass() + ": " + t.getMessage(), t);
       }
     }
 
