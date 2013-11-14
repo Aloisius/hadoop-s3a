@@ -180,8 +180,9 @@ public class S3AFileSystem extends FileSystem {
             LOG.info("Unable to abort multipart upload, you may need to manually remove uploaded parts: " + e2.getMessage(), e2);
           }
         } else {
+          long delta = (now.getTime() - upload.getInitiated().getTime()) / 1000;
           if (LOG.isDebugEnabled()) {
-            LOG.info("Existing new multipart upload " + upload.getUploadId() + " for " + upload.getKey() +
+            LOG.info("Existing new multipart upload " + delta + "secs old: " + upload.getUploadId() + " for " + upload.getKey() +
                 " initiated " + upload.getInitiated() + " by " + upload.getInitiator());
           }
         }
