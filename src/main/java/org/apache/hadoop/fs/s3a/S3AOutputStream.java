@@ -176,9 +176,6 @@ public class S3AOutputStream extends OutputStream {
       long delta = transferred - lastBytesTransferred;
       if (statistics != null && delta != 0) {
         statistics.incrementBytesWritten(delta);
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("S3A write delta: " + delta + " bytes");
-        }
       }
 
       lastBytesTransferred = transferred;
