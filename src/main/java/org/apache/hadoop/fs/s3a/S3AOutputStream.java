@@ -29,6 +29,7 @@ import com.amazonaws.services.s3.transfer.Upload;
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocalDirAllocator;
 import org.apache.hadoop.util.Progressable;
 
 import java.io.BufferedOutputStream;
@@ -52,6 +53,7 @@ public class S3AOutputStream extends OutputStream {
   private S3AFileSystem fs;
   private CannedAccessControlList cannedACL;
   private FileSystem.Statistics statistics;
+  private LocalDirAllocator lDirAlloc;
 
   public static final Log LOG = S3AFileSystem.LOG;
 
@@ -69,14 +71,13 @@ public class S3AOutputStream extends OutputStream {
     partSize = conf.getLong(MULTIPART_SIZE, DEFAULT_MULTIPART_SIZE);
     partSizeThreshold = conf.getInt(MIN_MULTIPART_THRESHOLD, DEFAULT_MIN_MULTIPART_THRESHOLD);
 
-    File dir = new File(conf.get(BUFFER_DIR, conf.get("fs.s3.buffer.dir")));
-
-    if (!dir.mkdirs() && !dir.exists()) {
-      throw new IOException("Cannot create S3 buffer directory: " + dir);
+    if (conf.get(BUFFER_DIR, null) != null) {
+      lDirAlloc = new LocalDirAllocator(BUFFER_DIR);
+    } else {
+      lDirAlloc = new LocalDirAllocator("fs.s3.buffer.dir");
     }
 
-    backupFile = File.createTempFile("output-", ".tmp", dir);
-    backupFile.deleteOnExit();
+    backupFile = lDirAlloc.createTmpFileForWrite("output-", LocalDirAllocator.SIZE_UNKNOWN, conf);
     closed = false;
 
     LOG.info("OutputStream for key '" + key + "' writing to tempfile: " + this.backupFile);
