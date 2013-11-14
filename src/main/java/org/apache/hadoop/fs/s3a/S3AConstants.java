@@ -39,10 +39,10 @@ public class S3AConstants {
   public static final int DEFAULT_MAX_PAGING_KEYS = 5000;
 
   public static final String MULTIPART_SIZE = "fs.s3a.multipartSize";
-  public static final long DEFAULT_MULTIPART_SIZE = (long)5 * 1024 * 1024;
+  public static final long DEFAULT_MULTIPART_SIZE = (long)10 * 1024 * 1024;
 
   public static final String MIN_MULTIPART_THRESHOLD = "fs.s3a.minMultipartSize";
-  public static final int DEFAULT_MIN_MULTIPART_THRESHOLD = 5 * 1024 * 1024;
+  public static final int DEFAULT_MIN_MULTIPART_THRESHOLD = 20 * 1024 * 1024;
 
   public static final String BUFFER_DIR = "fs.s3a.buffer.dir";
 

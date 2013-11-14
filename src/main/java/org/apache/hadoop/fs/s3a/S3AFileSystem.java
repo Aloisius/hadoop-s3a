@@ -133,6 +133,16 @@ public class S3AFileSystem extends FileSystem {
     partSize = conf.getLong(MULTIPART_SIZE, DEFAULT_MULTIPART_SIZE);
     partSizeThreshold = conf.getInt(MIN_MULTIPART_THRESHOLD, DEFAULT_MIN_MULTIPART_THRESHOLD);
 
+    if (partSize < 5 * 1024 * 1024) {
+      LOG.error(MULTIPART_SIZE + " must be at least 5 MB");
+      partSize = 5 * 1024 * 1024;
+    }
+
+    if (partSizeThreshold < 5 * 1024 * 1024) {
+      LOG.error(MIN_MULTIPART_THRESHOLD + " must be at least 5 MB");
+      partSizeThreshold = 5 * 1024 * 1024;
+    }
+
     String cannedACLName = conf.get(CANNED_ACL, DEFAULT_CANNED_ACL);
     if (!cannedACLName.isEmpty()) {
       cannedACL = CannedAccessControlList.valueOf(cannedACLName);
