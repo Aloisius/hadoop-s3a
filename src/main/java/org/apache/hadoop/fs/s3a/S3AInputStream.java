@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.FileSystem;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
+import java.net.SocketException;
 
 public class S3AInputStream extends FSInputStream {
   private long pos;
@@ -116,7 +117,11 @@ public class S3AInputStream extends FSInputStream {
     try {
       byteRead = wrappedStream.read();
     } catch (SocketTimeoutException e) {
-      LOG.info("Got timeout while trying to read from stream, trying to recover");
+      LOG.info("Got timeout while trying to read from stream, trying to recover " + e);
+      reopen(pos);
+      byteRead = wrappedStream.read();
+    } catch (SocketException e) {
+      LOG.info("Got socket exception while trying to read from stream, trying to recover " + e);
       reopen(pos);
       byteRead = wrappedStream.read();
     }
@@ -143,7 +148,11 @@ public class S3AInputStream extends FSInputStream {
     try {
       byteRead = wrappedStream.read(buf, off, len);
     } catch (SocketTimeoutException e) {
-      LOG.info("Got timeout while trying to read from stream, trying to recover");
+      LOG.info("Got timeout while trying to read from stream, trying to recover " + e);
+      reopen(pos);
+      byteRead = wrappedStream.read(buf, off, len);
+    } catch (SocketException e) {
+      LOG.info("Got socket exception while trying to read from stream, trying to recover " + e);
       reopen(pos);
       byteRead = wrappedStream.read(buf, off, len);
     }
