@@ -50,6 +50,8 @@ public class S3AInputStream extends FSInputStream {
     this.stats = stats;
     this.pos = 0;
     this.closed = false;
+    this.wrappedObject = null;
+    this.wrappedStream = null;
   }
 
   private void openIfNeeded() throws IOException {
@@ -73,10 +75,12 @@ public class S3AInputStream extends FSInputStream {
       wrappedStream.abort();
     }
 
-    GetObjectRequest request = new GetObjectRequest(wrappedObject.getBucketName(), wrappedObject.getKey());
+    LOG.info("Actually opening file " + key + " at pos " + pos);
+
+    GetObjectRequest request = new GetObjectRequest(bucket, key);
     request.setRange(pos, contentLength-1);
 
-    wrappedObject = client.getObject(bucket, key);
+    wrappedObject = client.getObject(request);
     wrappedStream = wrappedObject.getObjectContent();
 
     if (wrappedStream == null) {
