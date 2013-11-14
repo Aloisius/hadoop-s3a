@@ -161,7 +161,6 @@ public class S3AFileSystem extends FileSystem {
     MultipartUploadListing multipartUploadListing = s3.listMultipartUploads(listMultipartUploadsRequest);
 
     Date now = new Date();
-    Owner accountOwner = s3.getS3AccountOwner();
     List<MultipartUpload> multipartUploads = multipartUploadListing.getMultipartUploads();
 
     if (multipartUploads.size() >= multipartUploadListing.getMaxUploads() * 0.9) {
@@ -171,26 +170,18 @@ public class S3AFileSystem extends FileSystem {
     if (purgeExistingMultipart) {
       int aborted = 0;
       for (MultipartUpload upload : multipartUploads) {
-        // Limit ourselves to the same owner in order to deal with shared buckets like the aws-publicdatasets
-        if (accountOwner.equals(upload.getInitiator())) {
-          if (now.getTime() - upload.getInitiated().getTime() >= purgeExistingMultipartAge*1000) {
-            LOG.info("Deleting existing multipart upload " + upload.getUploadId() + " for " + upload.getKey() +
-                " initiated " + upload.getInitiated() + " by " + upload.getInitiator());
-            try {
-              s3.abortMultipartUpload(new AbortMultipartUploadRequest(bucket, upload.getKey(), upload.getUploadId()));
-              aborted++;
-            } catch (Exception e2) {
-              LOG.info("Unable to abort multipart upload, you may need to manually remove uploaded parts: " + e2.getMessage(), e2);
-            }
-          } else {
-            if (LOG.isDebugEnabled()) {
-              LOG.info("Existing new multipart upload " + upload.getUploadId() + " for " + upload.getKey() +
-                  " initiated " + upload.getInitiated() + " by " + upload.getInitiator());
-            }
+        if (now.getTime() - upload.getInitiated().getTime() >= purgeExistingMultipartAge*1000) {
+          LOG.info("Deleting existing multipart upload " + upload.getUploadId() + " for " + upload.getKey() +
+              " initiated " + upload.getInitiated() + " by " + upload.getInitiator());
+          try {
+            s3.abortMultipartUpload(new AbortMultipartUploadRequest(bucket, upload.getKey(), upload.getUploadId()));
+            aborted++;
+          } catch (Exception e2) {
+            LOG.info("Unable to abort multipart upload, you may need to manually remove uploaded parts: " + e2.getMessage(), e2);
           }
         } else {
           if (LOG.isDebugEnabled()) {
-            LOG.info("Existing multipart upload " + upload.getUploadId() + " for " + upload.getKey() +
+            LOG.info("Existing new multipart upload " + upload.getUploadId() + " for " + upload.getKey() +
                 " initiated " + upload.getInitiated() + " by " + upload.getInitiator());
           }
         }

@@ -111,6 +111,7 @@ public class S3AOutputStream extends OutputStream {
       putObjectRequest.setCannedAcl(cannedACL);
 
       Upload upload = transfers.upload(putObjectRequest);
+
       ProgressableProgressListener listener = new ProgressableProgressListener(upload, progress, statistics);
       upload.addProgressListener(listener);
 
