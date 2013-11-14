@@ -20,7 +20,6 @@ package org.apache.hadoop.fs.s3a;
 
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import org.apache.commons.logging.Log;
@@ -28,7 +27,6 @@ import org.apache.hadoop.fs.FSInputStream;
 import org.apache.hadoop.fs.FileSystem;
 
 import java.io.IOException;
-import java.io.InputStream;
 
 public class S3AInputStream extends FSInputStream {
   private long pos;
@@ -37,20 +35,55 @@ public class S3AInputStream extends FSInputStream {
   private S3Object wrappedObject;
   private FileSystem.Statistics stats;
   private AmazonS3Client client;
+  private String bucket;
+  private String key;
+  private long contentLength;
   public static final Log LOG = S3AFileSystem.LOG;
 
-  public S3AInputStream(S3Object obj, AmazonS3Client client,
-                        FileSystem.Statistics stats) {
-    if (obj.getObjectContent() == null) {
-      throw new IllegalArgumentException("Null InputStream");
-    }
 
-    this.wrappedObject = obj;
-    this.wrappedStream = obj.getObjectContent();
+  public S3AInputStream(String bucket, String key, long contentLength, AmazonS3Client client,
+                        FileSystem.Statistics stats) {
+    this.bucket = bucket;
+    this.key = key;
+    this.contentLength = contentLength;
     this.client = client;
     this.stats = stats;
     this.pos = 0;
     this.closed = false;
+  }
+
+  private void openIfNeeded() throws IOException {
+    if (wrappedObject == null) {
+      reopen(0);
+    }
+  }
+
+  private void reopen(long pos) throws IOException {
+    if (wrappedStream != null) {
+      if (this.pos == pos) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Asked to reopen stream to the same position " + pos);
+        }
+        return;
+      }
+
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Aborting old stream to open at pos " + pos);
+      }
+      wrappedStream.abort();
+    }
+
+    GetObjectRequest request = new GetObjectRequest(wrappedObject.getBucketName(), wrappedObject.getKey());
+    request.setRange(pos, contentLength-1);
+
+    wrappedObject = client.getObject(bucket, key);
+    wrappedStream = wrappedObject.getObjectContent();
+
+    if (wrappedStream == null) {
+      throw new IOException("Null IO stream");
+    }
+
+    this.pos = pos;
   }
 
   @Override
@@ -65,15 +98,7 @@ public class S3AInputStream extends FSInputStream {
     }
 
     LOG.info("Reopening " +  wrappedObject.getKey() + " to seek to new offset " + (pos - this.pos));
-    wrappedStream.abort();
-
-    ObjectMetadata metadata = wrappedObject.getObjectMetadata();
-
-    GetObjectRequest request = new GetObjectRequest(wrappedObject.getBucketName(), wrappedObject.getKey());
-    request.setRange(pos, metadata.getContentLength());
-    wrappedObject = client.getObject(request);
-    wrappedStream = wrappedObject.getObjectContent();
-    this.pos = pos;
+    reopen(pos);
   }
 
   @Override
@@ -86,6 +111,8 @@ public class S3AInputStream extends FSInputStream {
     if (closed) {
       throw new IOException("Stream closed");
     }
+
+    openIfNeeded();
 
     int byteRead = wrappedStream.read();
     if (byteRead >= 0) {
@@ -102,6 +129,8 @@ public class S3AInputStream extends FSInputStream {
     if (closed) {
       throw new IOException("Stream closed");
     }
+
+    openIfNeeded();
 
     int result = wrappedStream.read(buf, off, len);
     if (result > 0) {
@@ -126,16 +155,6 @@ public class S3AInputStream extends FSInputStream {
 
   @Override
   public boolean markSupported() {
-    return wrappedStream.markSupported();
-  }
-
-  @Override
-  public void mark(int readLimit) {
-    wrappedStream.mark(readLimit);
-  }
-
-  @Override
-  public void reset() throws IOException {
-    wrappedStream.reset();
+    return false;
   }
 }

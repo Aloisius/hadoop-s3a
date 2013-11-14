@@ -242,9 +242,9 @@ public class S3AFileSystem extends FileSystem {
       throw new IOException("Can't open " + f + " because it is a directory");
     }
 
-    S3Object obj = s3.getObject(bucket, pathToKey(f));
-    statistics.incrementReadOps(1);
-    return new FSDataInputStream(new S3AInputStream(obj, s3, statistics));
+    //S3Object obj = s3.getObject(bucket, pathToKey(f));
+    // statistics.incrementReadOps(1);
+    return new FSDataInputStream(new S3AInputStream(bucket, pathToKey(f), fileStatus.getLen(), s3, statistics));
   }
 
   /**
