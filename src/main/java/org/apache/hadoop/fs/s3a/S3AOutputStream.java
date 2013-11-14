@@ -172,7 +172,8 @@ public class S3AOutputStream extends OutputStream {
         statistics.incrementWriteOps(1);
       }
 
-      long delta = upload.getProgress().getBytesTransferred() - lastBytesTransferred;
+      long transferred = upload.getProgress().getBytesTransferred();
+      long delta = transferred - lastBytesTransferred;
       if (statistics != null && delta != 0) {
         statistics.incrementBytesWritten(delta);
         if (LOG.isDebugEnabled()) {
@@ -180,7 +181,7 @@ public class S3AOutputStream extends OutputStream {
         }
       }
 
-      lastBytesTransferred = progressEvent.getBytesTransferred();
+      lastBytesTransferred = transferred;
     }
 
     public long getLastBytesTransferred() {
