@@ -155,18 +155,19 @@ public class S3AFileSystem extends FileSystem {
     boolean purgeExistingMultipart = conf.getBoolean(PURGE_EXISTING_MULTIPART, DEFAULT_PURGE_EXISTING_MULTIPART);
     long purgeExistingMultipartAge = conf.getLong(PURGE_EXISTING_MULTIPART_AGE, DEFAULT_PURGE_EXISTING_MULTIPART_AGE);
 
-    try {
-      ListMultipartUploadsRequest listMultipartUploadsRequest = new ListMultipartUploadsRequest(bucket);
-      MultipartUploadListing multipartUploadListing = s3.listMultipartUploads(listMultipartUploadsRequest);
+    if (purgeExistingMultipart) {
+      try {
+        ListMultipartUploadsRequest listMultipartUploadsRequest = new ListMultipartUploadsRequest(bucket);
+        MultipartUploadListing multipartUploadListing = s3.listMultipartUploads(listMultipartUploadsRequest);
 
-      Date now = new Date();
-      List<MultipartUpload> multipartUploads = multipartUploadListing.getMultipartUploads();
+        Date now = new Date();
+        List<MultipartUpload> multipartUploads = multipartUploadListing.getMultipartUploads();
 
-      if (multipartUploads.size() >= multipartUploadListing.getMaxUploads() * 0.9) {
-        LOG.warn("Multipart max uploads limit > 90% reached " + multipartUploads.size() + "/" + multipartUploadListing.getMaxUploads());
-      }
+        if (multipartUploads.size() >= multipartUploadListing.getMaxUploads() * 0.9) {
+          LOG.warn("Multipart max uploads limit > 90% reached " + multipartUploads.size() + "/" + multipartUploadListing.getMaxUploads());
+        }
 
-      if (purgeExistingMultipart) {
+
         int aborted = 0;
         for (MultipartUpload upload : multipartUploads) {
           if (now.getTime() - upload.getInitiated().getTime() >= purgeExistingMultipartAge*1000) {
@@ -194,13 +195,13 @@ public class S3AFileSystem extends FileSystem {
           conf.setLong(MULTIPART_SIZE, partSize);
           conf.setInt(MIN_MULTIPART_THRESHOLD, partSizeThreshold);
         }
+      } catch (Exception e) {
+        LOG.warn("Can't list multipart uploads, pushing multipart limit way up");
+        partSize = Math.max(partSize, 2147483647);
+        partSizeThreshold = (int)partSize;
+        conf.setLong(MULTIPART_SIZE, partSize);
+        conf.setInt(MIN_MULTIPART_THRESHOLD, partSizeThreshold);
       }
-    } catch (Exception e) {
-      LOG.warn("Can't list multipart uploads, pushing multipart limit way up");
-      partSize = Math.max(partSize, 2147483647);
-      partSizeThreshold = (int)partSize;
-      conf.setLong(MULTIPART_SIZE, partSize);
-      conf.setInt(MIN_MULTIPART_THRESHOLD, partSizeThreshold);
     }
 
     setConf(conf);
