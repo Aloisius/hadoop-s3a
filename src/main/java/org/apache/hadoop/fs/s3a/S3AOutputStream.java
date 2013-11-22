@@ -98,6 +98,8 @@ public class S3AOutputStream extends OutputStream {
 
     backupStream.close();
     LOG.info("OutputStream for key '" + key + "' closed. Now beginning upload");
+    LOG.info("Minimum upload part size: " + partSize + " threshold " + partSizeThreshold);
+
 
     try {
       TransferManagerConfiguration transferConfiguration = new TransferManagerConfiguration();

@@ -133,18 +133,34 @@ public class S3ACopyTransferManager {
       }
     }
 
-    CompleteMultipartUploadRequest completeRequest = new
-        CompleteMultipartUploadRequest(copyObjectRequest.getDestinationBucketName(), copyObjectRequest.getDestinationKey(),
-        initResult.getUploadId(), partETags);
-    CompleteMultipartUploadResult completeUploadResponse = s3.completeMultipartUpload(completeRequest);
+    CopyObjectResult result;
+    try {
+      CompleteMultipartUploadRequest completeRequest = new
+          CompleteMultipartUploadRequest(copyObjectRequest.getDestinationBucketName(), copyObjectRequest.getDestinationKey(),
+          initResult.getUploadId(), partETags);
+      CompleteMultipartUploadResult completeUploadResponse = s3.completeMultipartUpload(completeRequest);
 
-    CopyObjectResult result = new CopyObjectResult();
-    result.setETag(completeUploadResponse.getETag());
-    result.setExpirationTime(completeUploadResponse.getExpirationTime());
-    result.setExpirationTimeRuleId(completeUploadResponse.getExpirationTimeRuleId());
-    result.setLastModifiedDate(srcMeta.getLastModified());
-    result.setServerSideEncryption(completeUploadResponse.getServerSideEncryption());
-    result.setVersionId(completeUploadResponse.getVersionId());
+      result = new CopyObjectResult();
+      result.setETag(completeUploadResponse.getETag());
+      result.setExpirationTime(completeUploadResponse.getExpirationTime());
+      result.setExpirationTimeRuleId(completeUploadResponse.getExpirationTimeRuleId());
+      result.setLastModifiedDate(srcMeta.getLastModified());
+      result.setServerSideEncryption(completeUploadResponse.getServerSideEncryption());
+      result.setVersionId(completeUploadResponse.getVersionId());
+    } catch (Exception e) {
+      try {
+        s3.abortMultipartUpload(new AbortMultipartUploadRequest(copyObjectRequest.getDestinationBucketName(),
+            copyObjectRequest.getDestinationKey(), initResult.getUploadId()));
+      } catch (Exception e2) {
+        LOG.info("Unable to abort multipart upload, you may need to manually remove uploaded parts: " + e2.getMessage(), e2);
+      }
+
+      LOG.info("Caught exception while trying to complete upload", e);
+      Throwable t = e.getCause();
+      if (t instanceof AmazonClientException) throw (AmazonClientException)t;
+      throw new AmazonClientException("Unable to complete copy: " + t.getClass() + ": " + t.getMessage(), t);
+    }
+
 
     return result;
   }

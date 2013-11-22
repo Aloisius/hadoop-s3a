@@ -189,7 +189,7 @@ public class S3AFileSystem extends FileSystem {
 
         if (aborted > 0 && multipartUploads.size() - aborted >= multipartUploadListing.getMaxUploads() * 0.9) {
           LOG.warn("Multipart max uploads limit > 90% reached even after aborting - raising partSize to limit multipart usage");
-          partSize = Math.max(partSize, (long)1 * 1024 * 1024 * 1024);
+          partSize = Math.max(partSize, 2147483647);
           partSizeThreshold = (int)partSize;
           conf.setLong(MULTIPART_SIZE, partSize);
           conf.setInt(MIN_MULTIPART_THRESHOLD, partSizeThreshold);
@@ -197,7 +197,7 @@ public class S3AFileSystem extends FileSystem {
       }
     } catch (Exception e) {
       LOG.warn("Can't list multipart uploads, pushing multipart limit way up");
-      partSize = Math.max(partSize, (long)4 * 1024 * 1024 * 1024);
+      partSize = Math.max(partSize, 2147483647);
       partSizeThreshold = (int)partSize;
       conf.setLong(MULTIPART_SIZE, partSize);
       conf.setInt(MIN_MULTIPART_THRESHOLD, partSizeThreshold);
