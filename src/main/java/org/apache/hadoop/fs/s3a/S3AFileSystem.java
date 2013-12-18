@@ -615,6 +615,10 @@ public class S3AFileSystem extends FileSystem {
         }
 
         if (objects.isTruncated()) {
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("listStatus: list truncated - getting next batch");
+          }
+
           objects = s3.listNextBatchOfObjects(objects);
           statistics.incrementReadOps(1);
         } else {
