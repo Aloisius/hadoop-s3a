@@ -36,12 +36,9 @@ import com.amazonaws.auth.BasicAWSCredentials;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
-import com.amazonaws.services.s3.model.MultipartUpload;
-import com.amazonaws.services.s3.model.MultipartUploadListing;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
@@ -51,7 +48,6 @@ import com.amazonaws.services.s3.transfer.Copy;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
-import com.amazonaws.services.s3.model.ListMultipartUploadsRequest;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -160,6 +156,7 @@ public class S3AFileSystem extends FileSystem {
       Date purgeBefore = new Date(new Date().getTime() - purgeExistingMultipartAge*1000);
 
       transferManager.abortMultipartUploads(bucket, purgeBefore);
+      transferManager.shutdownNow();
     }
 
     setConf(conf);
@@ -794,6 +791,8 @@ public class S3AFileSystem extends FileSystem {
       statistics.incrementWriteOps(1);
     } catch (InterruptedException e) {
       throw new IOException("Got interrupted, cancelling");
+    } finally {
+      transfers.shutdownNow();
     }
 
     // This will delete unnecessary fake parent directories
@@ -824,6 +823,8 @@ public class S3AFileSystem extends FileSystem {
       statistics.incrementWriteOps(1);
     } catch (InterruptedException e) {
       throw new IOException("Got interrupted, cancelling");
+    } finally {
+      transfers.shutdownNow();
     }
   }
 
