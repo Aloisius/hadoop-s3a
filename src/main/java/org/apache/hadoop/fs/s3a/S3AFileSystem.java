@@ -48,6 +48,8 @@ import com.amazonaws.services.s3.transfer.Copy;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
+import com.amazonaws.event.ProgressListener;
+import com.amazonaws.event.ProgressEvent;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -785,7 +787,18 @@ public class S3AFileSystem extends FileSystem {
     PutObjectRequest putObjectRequest = new PutObjectRequest(bucket, key, srcfile);
     putObjectRequest.setCannedAcl(cannedACL);
 
+    ProgressListener progressListener = new ProgressListener() {
+      public void progressChanged(ProgressEvent progressEvent) {
+        switch (progressEvent.getEventCode()) {
+          case ProgressEvent.PART_COMPLETED_EVENT_CODE:
+            statistics.incrementWriteOps(1);
+            break;
+        }
+      }
+    };
+
     Upload up = transfers.upload(putObjectRequest);
+    up.addProgressListener(progressListener);
     try {
       up.waitForUploadResult();
       statistics.incrementWriteOps(1);
@@ -817,7 +830,18 @@ public class S3AFileSystem extends FileSystem {
     CopyObjectRequest copyObjectRequest = new CopyObjectRequest(bucket, srcKey, bucket, dstKey);
     copyObjectRequest.setCannedAccessControlList(cannedACL);
 
+    ProgressListener progressListener = new ProgressListener() {
+      public void progressChanged(ProgressEvent progressEvent) {
+        switch (progressEvent.getEventCode()) {
+          case ProgressEvent.PART_COMPLETED_EVENT_CODE:
+            statistics.incrementWriteOps(1);
+            break;
+        }
+      }
+    };
+
     Copy copy = transfers.copy(copyObjectRequest);
+    copy.addProgressListener(progressListener);
     try {
       copy.waitForCopyResult();
       statistics.incrementWriteOps(1);
