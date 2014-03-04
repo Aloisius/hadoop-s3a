@@ -156,52 +156,10 @@ public class S3AFileSystem extends FileSystem {
     long purgeExistingMultipartAge = conf.getLong(PURGE_EXISTING_MULTIPART_AGE, DEFAULT_PURGE_EXISTING_MULTIPART_AGE);
 
     if (purgeExistingMultipart) {
-      try {
-        ListMultipartUploadsRequest listMultipartUploadsRequest = new ListMultipartUploadsRequest(bucket);
-        MultipartUploadListing multipartUploadListing = s3.listMultipartUploads(listMultipartUploadsRequest);
+      TransferManager transferManager = new TransferManager(s3);
+      Date purgeBefore = new Date(new Date().getTime() - purgeExistingMultipartAge*1000);
 
-        Date now = new Date();
-        List<MultipartUpload> multipartUploads = multipartUploadListing.getMultipartUploads();
-
-        if (multipartUploads.size() >= multipartUploadListing.getMaxUploads() * 0.9) {
-          LOG.warn("Multipart max uploads limit > 90% reached " + multipartUploads.size() + "/" + multipartUploadListing.getMaxUploads());
-        }
-
-
-        int aborted = 0;
-        for (MultipartUpload upload : multipartUploads) {
-          if (now.getTime() - upload.getInitiated().getTime() >= purgeExistingMultipartAge*1000) {
-            LOG.info("Deleting existing multipart upload " + upload.getUploadId() + " for " + upload.getKey() +
-                " initiated " + upload.getInitiated() + " by " + upload.getInitiator());
-            try {
-              s3.abortMultipartUpload(new AbortMultipartUploadRequest(bucket, upload.getKey(), upload.getUploadId()));
-              aborted++;
-            } catch (Exception e2) {
-              //LOG.info("Unable to abort multipart upload, you may need to manually remove uploaded parts: " + e2.getMessage(), e2);
-            }
-          } else {
-            long delta = (now.getTime() - upload.getInitiated().getTime()) / 1000;
-            if (LOG.isDebugEnabled()) {
-              LOG.info("Existing new multipart upload " + delta + "secs old: " + upload.getUploadId() + " for " + upload.getKey() +
-                  " initiated " + upload.getInitiated() + " by " + upload.getInitiator());
-            }
-          }
-        }
-
-        if (aborted > 0 && multipartUploads.size() - aborted >= multipartUploadListing.getMaxUploads() * 0.9) {
-          LOG.warn("Multipart max uploads limit > 90% reached even after aborting - raising partSize to limit multipart usage");
-          partSize = Math.max(partSize, 2147483647);
-          partSizeThreshold = (int)partSize;
-          conf.setLong(MULTIPART_SIZE, partSize);
-          conf.setInt(MIN_MULTIPART_THRESHOLD, partSizeThreshold);
-        }
-      } catch (Exception e) {
-        LOG.warn("Can't list multipart uploads, pushing multipart limit way up");
-        partSize = Math.max(partSize, 2147483647);
-        partSizeThreshold = (int)partSize;
-        conf.setLong(MULTIPART_SIZE, partSize);
-        conf.setInt(MIN_MULTIPART_THRESHOLD, partSizeThreshold);
-      }
+      transferManager.abortMultipartUploads(bucket, purgeBefore);
     }
 
     setConf(conf);
