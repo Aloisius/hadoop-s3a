@@ -46,8 +46,8 @@ import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
-import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.s3.transfer.Copy;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerConfiguration;
 import com.amazonaws.services.s3.transfer.Upload;
@@ -850,27 +850,21 @@ public class S3AFileSystem extends FileSystem {
       LOG.debug("copyFile " + srcKey + " -> " + dstKey);
     }
 
-    // It would be nice if the AWS TransferManager did this for us :/
-    GetObjectMetadataRequest metadataRequest =
-        new GetObjectMetadataRequest(bucket, srcKey);
-    ObjectMetadata metadataResult = s3.getObjectMetadata(metadataRequest);
-    statistics.incrementReadOps(1);
+    TransferManagerConfiguration transferConfiguration = new TransferManagerConfiguration();
+    transferConfiguration.setMultipartCopyPartSize(partSize);
 
-    long objectSize = metadataResult.getContentLength();
+    TransferManager transfers = new TransferManager(s3);
+    transfers.setConfiguration(transferConfiguration);
 
     CopyObjectRequest copyObjectRequest = new CopyObjectRequest(bucket, srcKey, bucket, dstKey);
     copyObjectRequest.setCannedAccessControlList(cannedACL);
 
-    if (objectSize <= partSizeThreshold) {
-      s3.copyObject(copyObjectRequest);
+    Copy copy = transfers.copy(copyObjectRequest);
+    try {
+      copy.waitForCopyResult();
       statistics.incrementWriteOps(1);
-    } else {
-      S3ACopyTransferManager copyTransfer = new S3ACopyTransferManager(s3, partSize, statistics);
-      try {
-        copyTransfer.copyObject(copyObjectRequest);
-      } catch (InterruptedException e) {
-        throw new IOException("Got interrupted while trying to copy");
-      }
+    } catch (InterruptedException e) {
+      throw new IOException("Got interrupted, cancelling");
     }
   }
 

@@ -20,11 +20,11 @@ Features:
 Build Instructions
 ------------------
 
-Build or download aws-java-sdk 1.6.5
+Build or download aws-java-sdk 1.7.2
 
-copy aws-java-sdk-1.6.5.jar, httpcore-4.2.jar, httpclient-4.2.3.jar 
-(from aws lib) and hadoop-s3a.jar to your hadoop classpath (run hadoop 
-classpath for the appropriate directory)
+copy aws-java-sdk-1.7.2.jar, httpcore-4.2.jar, httpclient-4.2.3.jar, jackson-databind-2.1.1.jar,
+jackson-core-2.1.1.jar, jackson-annotations-2.1.1.jar (aws lib dependencies) and hadoop-s3a.jar to your hadoop classpath
+(run hadoop classpath for the appropriate directory)
 
 Build src
 
@@ -83,7 +83,7 @@ much testing.
 - fs.s3a.socketTimeout - Socket connect timeout (default: 5000)
 - fs.s3a.maxPagingKeys - How many keys to request from S3 when doing directory listings at a time (default: 5000)
 - fs.s3a.multipartSize - How big (in bytes) to split a upload or copy operation up into (default: 10485760)
-- fs.s3a.minMultipartSize - Until a file is this large (in bytes), use non-parallel upload/copy (default: 20971520)
+- fs.s3a.minMultipartSize - Until a file is this large (in bytes), use non-parallel upload (default: 20971520)
 - fs.s3a.cannedACL - Set a canned ACL on newly created/copied objects (private | public-read | public-read-write | authenticated-read | log-delivery-write | bucket-owner-read | bucket-owner-full-control)
 - fs.s3a.purgeExistingMultiPart - True if you want to purge existing multipart uploads that may not have been completed/aborted correctly (default: false)
 - fs.s3a.purgeExistingMultiPartAge - Minimum age in seconds of multipart uploads to purge (default: 86400)
