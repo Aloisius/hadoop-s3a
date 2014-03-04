@@ -156,7 +156,7 @@ public class S3AFileSystem extends FileSystem {
       Date purgeBefore = new Date(new Date().getTime() - purgeExistingMultipartAge*1000);
 
       transferManager.abortMultipartUploads(bucket, purgeBefore);
-      transferManager.shutdownNow();
+      transferManager.shutdownNow(false);
     }
 
     setConf(conf);
@@ -792,7 +792,7 @@ public class S3AFileSystem extends FileSystem {
     } catch (InterruptedException e) {
       throw new IOException("Got interrupted, cancelling");
     } finally {
-      transfers.shutdownNow();
+      transfers.shutdownNow(false);
     }
 
     // This will delete unnecessary fake parent directories
@@ -824,7 +824,7 @@ public class S3AFileSystem extends FileSystem {
     } catch (InterruptedException e) {
       throw new IOException("Got interrupted, cancelling");
     } finally {
-      transfers.shutdownNow();
+      transfers.shutdownNow(false);
     }
   }
 
