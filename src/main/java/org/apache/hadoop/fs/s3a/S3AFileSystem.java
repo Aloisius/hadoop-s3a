@@ -833,6 +833,7 @@ public class S3AFileSystem extends FileSystem {
     Upload up = transfers.upload(putObjectRequest);
     try {
       up.waitForUploadResult();
+      statistics.incrementWriteOps(1);
     } catch (InterruptedException e) {
       throw new IOException("Got interrupted, cancelling");
     }
