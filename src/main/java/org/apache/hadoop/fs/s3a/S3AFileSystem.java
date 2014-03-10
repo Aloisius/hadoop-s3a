@@ -31,10 +31,12 @@ import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
+import com.amazonaws.auth.AWSCredentialsProviderChain;
 import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 
 import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
@@ -107,13 +109,11 @@ public class S3AFileSystem extends FileSystem {
       }
     }
 
-    if (accessKey != null && secretKey != null) {
-      LOG.info("Using accessKey for s3a");
-      credentials = new BasicAWSCredentials(accessKey, secretKey);
-    } else {
-      LOG.info("Using anonymous credentials for s3a");
-      credentials = new AnonymousAWSCredentials();
-    }
+    AWSCredentialsProviderChain credentials = new AWSCredentialsProviderChain(
+        new S3ABasicAWSCredentialsProvider(accessKey, secretKey),
+        new InstanceProfileCredentialsProvider(),
+        new S3AAnonymousAWSCredentialsProvider()
+    );
 
     bucket = name.getHost();
 
