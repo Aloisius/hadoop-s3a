@@ -17,21 +17,23 @@ Features:
 - Supports multiple buffer dirs to even out IO
 - Supports IAM role-based authentication
 
+
 Build Instructions
 ------------------
 
-Build or download aws-java-sdk 1.7.2
+Build using maven:
 
-copy aws-java-sdk-1.7.2.jar, httpcore-4.2.jar, httpclient-4.2.3.jar, jackson-databind-2.1.1.jar,
-jackson-core-2.1.1.jar, jackson-annotations-2.1.1.jar (aws lib dependencies) and hadoop-s3a.jar to your hadoop classpath
-(run hadoop classpath for the appropriate directory)
+$ mvn package
 
-Build src
+Copy jar and various dependencies to your hadoop libs dir (run 'hadoop classpath' to find appropriate lib dir)
 
-```shell
-$ javac -classpath `hadoop classpath` `find src/main -name '*.java'`
-$ jar cvf hadoop-s3a.jar -C src/main/java .
-```
+$ cp target/hadoop-s3a-0.0.1.jar target/lib/aws-java-sdk-1.7.2.jar \
+  target/lib/httpcore-4.2.jar target/lib/jackson-databind-2.1.1.jar \
+  target/lib/jackson-core-2.1.1.jar target/lib/jackson-annotations-2.1.1.jar \
+  /usr/lib/hadoop/lib/
+
+Note: These are dependencies that are necessary for CDH 5b2 (based on Hadoop 2.2.0). There is a chance you'll need other dependencies in the target/lib dir.
+Also, by default this builds against Hadoop 2.2.0. If you wish to build against a different version, edit the pom.xml file.
 
 Add the following keys to your core-site.xml file:
 
