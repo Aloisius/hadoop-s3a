@@ -23,14 +23,29 @@ Build Instructions
 
 Build using maven:
 
+```shell
 $ mvn package
+```
 
-Copy jar and various dependencies to your hadoop libs dir (run 'hadoop classpath' to find appropriate lib dir)
+Copy jar and various dependencies to your hadoop libs dir 
+(run 'hadoop classpath' to find appropriate lib dir):
 
-$ cp target/hadoop-s3a-0.0.1.jar target/lib/aws-java-sdk-1.7.2.jar target/lib/httpcore-4.2.jar target/lib/jackson-databind-2.1.1.jar target/lib/jackson-core-2.1.1.jar target/lib/jackson-annotations-2.1.1.jar /usr/lib/hadoop/lib/
+```shell
+$ cp target/hadoop-s3a-0.0.1.jar \
+     target/lib/aws-java-sdk-1.7.2.jar \
+     target/lib/httpcore-4.2.jar \
+     target/lib/jackson-databind-2.1.1.jar \
+     target/lib/jackson-core-2.1.1.jar \
+     target/lib/jackson-annotations-2.1.1.jar \
+     /usr/lib/hadoop/lib/
+```
 
-Note: These are dependencies that are necessary for CDH 5b2 (based on Hadoop 2.2.0). There is a chance you'll need other dependencies in the target/lib dir.
-Also, by default this builds against Hadoop 2.2.0. If you wish to build against a different version, edit the pom.xml file.
+Note: These are dependencies that are necessary for CDH 5b2 which is based on
+Hadoop 2.2.0. There is a chance you'll need other dependencies for different
+versions located in the target/lib dir.
+
+Also, by default this builds against Hadoop 2.2.0. If you wish to build 
+against a different version, edit the pom.xml file.
 
 Add the following keys to your core-site.xml file:
 
