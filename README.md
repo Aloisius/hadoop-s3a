@@ -15,7 +15,7 @@ Features:
 - AWS S3 explorer compatible empty directories using xyz/ instead of xyz_$folder$
 - Ignores _$folder$ files created by s3native and other S3 browsing utilities
 - Supports multiple buffer dirs to even out IO
-
+- Supports IAM role-based authentication
 
 Build Instructions
 ------------------
@@ -36,11 +36,13 @@ $ jar cvf hadoop-s3a.jar -C src/main/java .
 Add the following keys to your core-site.xml file:
 
 ```xml
+<!-- omit for IAM role based authentication -->
 <property>
   <name>fs.s3a.awsAccessKeyId</name>
   <value>...</value>
 </property>
 
+<!-- omit for IAM role based authentication -->
 <property>
   <name>fs.s3a.awsSecretAccessKey</name>
   <value>...</value>
