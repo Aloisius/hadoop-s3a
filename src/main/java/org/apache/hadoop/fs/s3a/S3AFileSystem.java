@@ -32,10 +32,7 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentialsProviderChain;
-import com.amazonaws.auth.AnonymousAWSCredentials;
-import com.amazonaws.auth.BasicAWSCredentials;
 
-import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
@@ -71,7 +68,6 @@ import static org.apache.hadoop.fs.s3a.S3AConstants.*;
 public class S3AFileSystem extends FileSystem {
   private URI uri;
   private Path workingDir;
-  private AWSCredentials credentials;
   private AmazonS3Client s3;
   private String bucket;
   private int maxKeys;
@@ -80,7 +76,6 @@ public class S3AFileSystem extends FileSystem {
   public static final Log LOG = LogFactory.getLog(S3AFileSystem.class);
   private CannedAccessControlList cannedACL;
 
-  private static final String S3N_FOLDER_SUFFIX = "_$folder$";
 
   /** Called after a new FileSystem instance is constructed.
    * @param name a uri whose authority section names the host, port, etc.
@@ -215,8 +210,6 @@ public class S3AFileSystem extends FileSystem {
       throw new IOException("Can't open " + f + " because it is a directory");
     }
 
-    //S3Object obj = s3.getObject(bucket, pathToKey(f));
-    // statistics.incrementReadOps(1);
     return new FSDataInputStream(new S3AInputStream(bucket, pathToKey(f), fileStatus.getLen(), s3, statistics));
   }
 

@@ -55,4 +55,6 @@ public class S3AConstants {
 
   public static final String PURGE_EXISTING_MULTIPART_AGE = "fs.s3a.purgeExistingMultiPartAge";
   public static final long DEFAULT_PURGE_EXISTING_MULTIPART_AGE = 14400;
+    
+  public static final String S3N_FOLDER_SUFFIX = "_$folder$";
 }
