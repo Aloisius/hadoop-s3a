@@ -56,7 +56,7 @@ public class Constants {
   // size of each of or multipart pieces in bytes
   public static final String OLD_MULTIPART_SIZE = "fs.s3a.multipartSize";
   public static final String NEW_MULTIPART_SIZE = "fs.s3a.multipart.size";
-  public static final long DEFAULT_MULTIPART_SIZE = 52428800; // 50 MB
+  public static final long DEFAULT_MULTIPART_SIZE = 104857600; // 100 MB
   
   // minimum size in bytes before we start a multipart uploads or copy
   public static final String OLD_MIN_MULTIPART_THRESHOLD = "fs.s3a.minMultipartSize";

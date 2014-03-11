@@ -102,8 +102,8 @@ much testing.
 - fs.s3a.attempts.maximum - How many times we should retry commands on transient errors (default: 10)
 - fs.s3a.connection.timeout - Socket connect timeout (default: 5000)
 - fs.s3a.paging.maximum - How many keys to request from S3 when doing directory listings at a time (default: 5000)
-- fs.s3a.multipart.size - How big (in bytes) to split a upload or copy operation up into (default: 10485760)
-- fs.s3a.multipart.threshold - Until a file is this large (in bytes), use non-parallel upload (default: 20971520)
+- fs.s3a.multipart.size - How big (in bytes) to split a upload or copy operation up into (default: 100 MB)
+- fs.s3a.multipart.threshold - Until a file is this large (in bytes), use non-parallel upload (default: 2 GB)
 - fs.s3a.acl.default - Set a canned ACL on newly created/copied objects (private | public-read | public-read-write | authenticated-read | log-delivery-write | bucket-owner-read | bucket-owner-full-control)
 - fs.s3a.multipart.purge - True if you want to purge existing multipart uploads that may not have been completed/aborted correctly (default: false)
 - fs.s3a.multipart.purge.age - Minimum age in seconds of multipart uploads to purge (default: 86400)
@@ -168,5 +168,8 @@ operations. Unlike the s3native driver, we only count bytes written when we
 start the upload (as opposed to the write calls to the temporary local file). 
 The driver also counts read & write ops, but they are done mostly to keep 
 from timing out on large s3 operations.
+
+The AWS SDK unfortunately passes the multipart threshold as an int which means
+fs.s3a.multipart.threshold can not be greater than 2^31-1 (2147483647).
 
 This is currently implemented as a FileSystem and not a AbstractFileSystem.
