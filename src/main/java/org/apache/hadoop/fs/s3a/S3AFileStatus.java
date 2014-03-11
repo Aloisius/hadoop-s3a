@@ -39,4 +39,23 @@ public class S3AFileStatus extends FileStatus {
   public boolean isEmptyDirectory() {
     return isEmptyDirectory;
   }
+  
+  /** Compare if this object is equal to another object
+   * @param   o the object to be compared.
+   * @return  true if two file status has the same path name; false if not.
+   */
+  @Override
+  public boolean equals(Object o) {
+    if (o == null) {
+      return false;
+    }
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof S3AFileStatus)) {
+      return false;
+    }
+    S3AFileStatus other = (S3AFileStatus)o;
+    return this.getPath().equals(other.getPath());
+  }
 }

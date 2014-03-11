@@ -62,7 +62,7 @@ public class S3AInputStream extends FSInputStream {
     }
   }
 
-  private void reopen(long pos) throws IOException {
+  private synchronized void reopen(long pos) throws IOException {
     if (wrappedStream != null) {
       if (LOG.isDebugEnabled()) {
         LOG.debug("Aborting old stream to open at pos " + pos);
@@ -86,12 +86,12 @@ public class S3AInputStream extends FSInputStream {
   }
 
   @Override
-  public long getPos() throws IOException {
+  public synchronized long getPos() throws IOException {
     return pos;
   }
 
   @Override
-  public void seek(long pos) throws IOException {
+  public synchronized void seek(long pos) throws IOException {
     if (this.pos == pos) {
       return;
     }

@@ -152,7 +152,7 @@ public class S3AOutputStream extends OutputStream {
     backupStream.write(b, off, len);
   }
 
-  class ProgressableProgressListener implements ProgressListener {
+  public static class ProgressableProgressListener implements ProgressListener {
     private Progressable progress;
     private FileSystem.Statistics statistics;
     private long lastBytesTransferred;

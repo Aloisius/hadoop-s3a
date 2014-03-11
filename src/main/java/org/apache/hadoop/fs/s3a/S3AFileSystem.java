@@ -256,10 +256,10 @@ public class S3AFileSystem extends FileSystem {
    * Renames Path src to Path dst.  Can take place on local fs
    * or remote DFS.
    *
-   * @warning S3 does not support renames. This method does a copy which can take S3 some time to execute with large
+   * Warning: S3 does not support renames. This method does a copy which can take S3 some time to execute with large
    *          files and directories. Since there is no Progressable passed in, this can time out jobs.
    *
-   * @note This implementation differs with other S3 drivers. Specifically:
+   * Note: This implementation differs with other S3 drivers. Specifically:
    *       Fails if src is a file and dst is a directory.
    *       Fails if src is a directory and dst is a file.
    *       Fails if the parent of dst does not exist or is a file.
