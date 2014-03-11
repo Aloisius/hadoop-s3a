@@ -24,7 +24,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.apache.hadoop.fs.s3a.S3AConstants.*;
+import static org.apache.hadoop.fs.s3a.Constants.*;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -58,8 +58,8 @@ public class TestLiveS3AFileSystem {
   public void setup() throws IOException {
     conf = new Configuration(false);
 
-    String accessKey = conf.get(ACCESS_KEY, null);
-    String secretKey = conf.get(SECRET_KEY, null);
+    String accessKey = conf.get(NEW_ACCESS_KEY, null);
+    String secretKey = conf.get(NEW_SECRET_KEY, null);
     testBucket = conf.get("fs.s3a.testBucket", null);
     testRootDir = "/test." + UUID.randomUUID() + "/";
 
