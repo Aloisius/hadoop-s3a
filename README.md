@@ -153,7 +153,8 @@ timeout.
 
 This driver will fully ignore _$folder$ files. This was necessary so 
 that it could interoperate with repositories that have had the s3native 
-driver used on them.
+driver used on them, but means that it won't recognize any empty directories
+that the s3native filesystem had created.
 
 This has only been tested under CDH 4 and CDH 5, but it should work with other 
 distributions of hadoop. Be sure to watch out for conflicting versions 
