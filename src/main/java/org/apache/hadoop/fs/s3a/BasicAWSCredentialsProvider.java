@@ -23,7 +23,7 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.AWSCredentials;
 
-public class BasicAWSCredentialsProvider  implements AWSCredentialsProvider {
+public class BasicAWSCredentialsProvider implements AWSCredentialsProvider {
   private String accessKey;
   private String secretKey;
 
