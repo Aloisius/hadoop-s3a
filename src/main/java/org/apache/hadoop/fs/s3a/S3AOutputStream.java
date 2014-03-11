@@ -74,7 +74,7 @@ public class S3AOutputStream extends OutputStream {
     if (conf.get(BUFFER_DIR, null) != null) {
       lDirAlloc = new LocalDirAllocator(BUFFER_DIR);
     } else {
-      lDirAlloc = new LocalDirAllocator("fs.s3.buffer.dir");
+      lDirAlloc = new LocalDirAllocator("${hadoop.tmp.dir}/s3a");
     }
 
     backupFile = lDirAlloc.createTmpFileForWrite("output-", LocalDirAllocator.SIZE_UNKNOWN, conf);

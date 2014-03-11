@@ -60,7 +60,7 @@ public class TestLiveS3AFileSystem {
 
     String accessKey = conf.get(NEW_ACCESS_KEY, null);
     String secretKey = conf.get(NEW_SECRET_KEY, null);
-    testBucket = conf.get("fs.s3a.testBucket", null);
+    testBucket = conf.get("test.fs.s3a.bucket", null);
     testRootDir = "/test." + UUID.randomUUID() + "/";
 
     if (accessKey == null || secretKey == null || testBucket == null) {

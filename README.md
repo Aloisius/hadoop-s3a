@@ -16,6 +16,7 @@ Features:
 - Ignores _$folder$ files created by s3native and other S3 browsing utilities
 - Supports multiple buffer dirs to even out IO
 - Supports IAM role-based authentication
+- Allows setting a default canned ACL for uploads
 
 
 Build Instructions
@@ -158,7 +159,7 @@ This has only been tested under CDH 4 and CDH 5, but it should work with other
 distributions of hadoop. Be sure to watch out for conflicting versions 
 of httpclient.
 
-Statistics for the filesystem may be calcualted differently than other 
+Statistics for the filesystem may be calculated differently than other 
 filesystems. When uploading a file, we do not count writing the temporary 
 file on the local filesystem towards the local filesystem's written bytes 
 count. When renaming files, we do not count the S3->S3 copy as read or write 
