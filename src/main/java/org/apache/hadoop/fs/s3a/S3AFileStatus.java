@@ -46,16 +46,17 @@ public class S3AFileStatus extends FileStatus {
    */
   @Override
   public boolean equals(Object o) {
-    if (o == null) {
-      return false;
-    }
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof S3AFileStatus)) {
-      return false;
-    }
-    S3AFileStatus other = (S3AFileStatus)o;
-    return this.getPath().equals(other.getPath());
+    return super.equals(o);
+  }
+  
+  /**
+   * Returns a hash code value for the object, which is defined as
+   * the hash code of the path name.
+   *
+   * @return  a hash code value for the path name.
+   */
+  @Override
+  public int hashCode() {
+    return super.hashCode();
   }
 }
