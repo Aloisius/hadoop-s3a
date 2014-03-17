@@ -104,7 +104,7 @@ much testing.
 - fs.s3a.paging.maximum - How many keys to request from S3 when doing directory listings at a time (default: 5000)
 - fs.s3a.multipart.size - How big (in bytes) to split a upload or copy operation up into (default: 100 MB)
 - fs.s3a.multipart.threshold - Until a file is this large (in bytes), use non-parallel upload (default: 2 GB)
-- fs.s3a.acl.default - Set a canned ACL on newly created/copied objects (private | public-read | public-read-write | authenticated-read | log-delivery-write | bucket-owner-read | bucket-owner-full-control)
+- fs.s3a.acl.default - Set a canned ACL on newly created/copied objects (Private | PublicRead | PublicReadWrite | AuthenticatedRead | LogDeliveryWrite | BucketOwnerRead | BucketOwnerFullControl)
 - fs.s3a.multipart.purge - True if you want to purge existing multipart uploads that may not have been completed/aborted correctly (default: false)
 - fs.s3a.multipart.purge.age - Minimum age in seconds of multipart uploads to purge (default: 86400)
 - fs.s3a.buffer.dir - Comma separated list of directories that will be used to buffer file writes out of (default: uses fs.s3.buffer.dir)
