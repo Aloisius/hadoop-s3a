@@ -64,11 +64,15 @@
 </property>
 
 <property>
-  <name>test.fs.s3a.bucket</name>
-  <value></value>
-  <description>The name of the s3 bucket to use for testing.</description>
+  <name>fs.s3a.impl</name>
+  <value>org.apache.hadoop.fs.s3a.S3AFileSystem</value>
 </property>
 
+<property>
+  <name>test.fs.s3a.name</name>
+  <value>s3a:///</value>
+  <description>The name of the s3 bucket to use for testing.</description>
+</property>
 
 
 <!-- Turn security off for tests by default -->

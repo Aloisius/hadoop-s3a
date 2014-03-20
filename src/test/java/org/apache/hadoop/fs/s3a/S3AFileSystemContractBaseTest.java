@@ -18,20 +18,15 @@
 
 package org.apache.hadoop.fs.s3a;
 
-import static org.junit.Assert.*;
+import static org.junit.Assume.*;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
-
-import static org.apache.hadoop.fs.s3a.Constants.*;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileSystemContractBaseTest;
 import org.apache.hadoop.fs.Path;
-
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,124 +34,100 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.util.UUID;
 
-/* Tests a live S3 system. If you keys and bucket aren't specified, all tests are marked as passed */
-public class TestLiveS3AFileSystem {
-  private Configuration conf;
-  private S3AFileSystem fileSys;
-  private boolean liveTest;
-  private String testBucket;
-  private URI testURI;
-  private String testRootDir;
-
+/**
+ *  Tests a live S3 system. If you keys and bucket aren't specified, all tests are marked as passed 
+ *  
+ *  This uses BlockJUnit4ClassRunner because FileSystemContractBaseTest from TestCase which uses the old Junit3 
+ *  runner that doesn't ignore assumptions properly making it impossible to skip the tests if we don't have a valid
+ *  bucket.
+ **/
+public class S3AFileSystemContractBaseTest extends FileSystemContractBaseTest {
   private static final int TEST_BUFFER_SIZE = 128;
   private static final int MODULUS = 128;
 
-  public static final Log LOG = LogFactory.getLog(S3AFileSystem.class);
+  protected static final Logger LOG = LoggerFactory.getLogger(S3AFileSystemContractBaseTest.class);
 
+  @Override
+  public void setUp() throws Exception {
+    Configuration conf = new Configuration();
 
-  @Before
-  public void setup() throws IOException {
-    conf = new Configuration(false);
-
-    String accessKey = conf.get(NEW_ACCESS_KEY, null);
-    String secretKey = conf.get(NEW_SECRET_KEY, null);
-    testBucket = conf.get("test.fs.s3a.bucket", null);
-    testRootDir = "/test." + UUID.randomUUID() + "/";
-
-    if (accessKey == null || secretKey == null || testBucket == null) {
-      liveTest = false;
-      return;
-    }
-
-    liveTest = true;
-
-    testURI =  URI.create("s3a://" + testBucket + testRootDir);
-    fileSys = new S3AFileSystem();
-    fileSys.initialize(testURI, conf);
-
-    // Wipe the test bucket
-    /*
-    fileSys.delete(new Path(testRootDir), true);
-    fileSys.mkdirs(new Path(testRootDir));
-    */
+    URI testURI = URI.create(conf.get("test.fs.s3a.name"));
+    
+    boolean liveTest = testURI != null && !testURI.equals("s3a:///");
+    
+    // This doesn't work with our JUnit 3 style test cases, so instead we'll make this whole class not run by default
+    assumeTrue(liveTest);
+    
+    fs = new S3AFileSystem();
+    fs.initialize(testURI, conf);
+    super.setUp();
   }
 
-  @After
-  public void after() throws IOException {
-    if (liveTest) {
-      fileSys.delete(new Path(testRootDir), true);
-    }
+  @Override
+  protected void tearDown() throws Exception {
+	if (fs != null) {
+	  fs.delete(path("/tests3a"), true);
+	}
+	super.tearDown();
   }
 
   @Test(timeout = 10000)
   public void testMkdirs() throws IOException {
-    if (!liveTest) {
-      return;
-    }
-
     // No trailing slash
-    assertTrue(fileSys.mkdirs(new Path(testRootDir, "a")));
-    assertTrue(fileSys.exists(new Path(testRootDir, "a")));
+    assertTrue(fs.mkdirs(path("/tests3a/a")));
+    assertTrue(fs.exists(path("/tests3a/a")));
 
     // With trailing slash
-    assertTrue(fileSys.mkdirs(new Path(testRootDir, "b/")));
-    assertTrue(fileSys.exists(new Path(testRootDir, "b/")));
+    assertTrue(fs.mkdirs(path("/tests3a/b/")));
+    assertTrue(fs.exists(path("/tests3a/b/")));
 
     // Two levels deep
-    assertTrue(fileSys.mkdirs(new Path(testRootDir, "c/a/")));
-    assertTrue(fileSys.exists(new Path(testRootDir, "c/a/")));
+    assertTrue(fs.mkdirs(path("/tests3a/c/a/")));
+    assertTrue(fs.exists(path("/tests3a/c/a/")));
 
     // Mismatched slashes
-    assertTrue(fileSys.exists(new Path(testRootDir, "c/a")));
+    assertTrue(fs.exists(path("/tests3a/c/a")));
   }
 
 
   @Test(timeout=20000)
   public void testDelete() throws IOException {
-    if (!liveTest) {
-      return;
-    }
-
     // Test deleting an empty directory
-    assertTrue(fileSys.mkdirs(new Path(testRootDir, "d")));
-    assertTrue(fileSys.delete(new Path(testRootDir, "d"), true));
-    assertFalse(fileSys.exists(new Path(testRootDir, "d")));
+    assertTrue(fs.mkdirs(path("/tests3a/d")));
+    assertTrue(fs.delete(path("/tests3a/d"), true));
+    assertFalse(fs.exists(path("/tests3a/d")));
 
     // Test deleting a deep empty directory
-    assertTrue(fileSys.mkdirs(new Path(testRootDir, "e/f/g/h")));
-    assertTrue(fileSys.delete(new Path(testRootDir, "e/f/g"), true));
-    assertFalse(fileSys.exists(new Path(testRootDir, "e/f/g/h")));
-    assertFalse(fileSys.exists(new Path(testRootDir, "e/f/g")));
-    assertTrue(fileSys.exists(new Path(testRootDir, "e/f")));
+    assertTrue(fs.mkdirs(path("/tests3a/e/f/g/h")));
+    assertTrue(fs.delete(path("/tests3a/e/f/g"), true));
+    assertFalse(fs.exists(path("/tests3a/e/f/g/h")));
+    assertFalse(fs.exists(path("/tests3a/e/f/g")));
+    assertTrue(fs.exists(path("/tests3a/e/f")));
 
     // Test delete of just a file
-    writeFile(new Path(testRootDir, "f/f/file"), 1000);
-    assertTrue(fileSys.exists(new Path(testRootDir, "f/f/file")));
-    assertTrue(fileSys.delete(new Path(testRootDir, "f/f/file"), false));
-    assertFalse(fileSys.exists(new Path(testRootDir, "f/f/file")));
+    writeFile(path("/tests3a/f/f/file"), 1000);
+    assertTrue(fs.exists(path("/tests3a/f/f/file")));
+    assertTrue(fs.delete(path("/tests3a/f/f/file"), false));
+    assertFalse(fs.exists(path("/tests3a/f/f/file")));
 
 
     // Test delete of a path with files in various directories
-    writeFile(new Path(testRootDir, "g/h/i/file"), 1000);
-    assertTrue(fileSys.exists(new Path(testRootDir, "g/h/i/file")));
-    writeFile(new Path(testRootDir, "g/h/j/file"), 1000);
-    assertTrue(fileSys.exists(new Path(testRootDir, "g/h/j/file")));
+    writeFile(path("/tests3a/g/h/i/file"), 1000);
+    assertTrue(fs.exists(path("/tests3a/g/h/i/file")));
+    writeFile(path("/tests3a/g/h/j/file"), 1000);
+    assertTrue(fs.exists(path("/tests3a/g/h/j/file")));
     try {
-      assertFalse(fileSys.delete(new Path(testRootDir, "g/h"), false));
+      assertFalse(fs.delete(path("/tests3a/g/h"), false));
       fail("Expected delete to fail with recursion turned off");
     } catch (IOException e) {}
-    assertTrue(fileSys.exists(new Path(testRootDir, "g/h/j/file")));
-    assertTrue(fileSys.delete(new Path(testRootDir, "g/h"), true));
-    assertFalse(fileSys.exists(new Path(testRootDir, "g/h/j")));
+    assertTrue(fs.exists(path("/tests3a/g/h/j/file")));
+    assertTrue(fs.delete(path("/tests3a/g/h"), true));
+    assertFalse(fs.exists(path("/tests3a/g/h/j")));
   }
 
 
   @Test(timeout = 3600000)
   public void testOpenCreate() throws IOException {
-    if (!liveTest) {
-      return;
-    }
-
     try {
       createAndReadFileTest(1024);
     } catch (IOException e) {
@@ -187,63 +158,51 @@ public class TestLiveS3AFileSystem {
 
   @Test(timeout = 1200000)
   public void testRenameFile() throws IOException {
-    if (!liveTest) {
-      return;
-    }
+    Path srcPath = path("/tests3a/a/srcfile");
 
-    Path srcPath = new Path(testRootDir, "a/srcfile");
-
-    final OutputStream outputStream = fileSys.create(srcPath, false);
+    final OutputStream outputStream = fs.create(srcPath, false);
     generateTestData(outputStream, 11 * 1024 * 1024);
     outputStream.close();
 
-    assertTrue(fileSys.exists(srcPath));
+    assertTrue(fs.exists(srcPath));
 
-    Path dstPath = new Path(testRootDir, "b/dstfile");
+    Path dstPath = path("/tests3a/b/dstfile");
 
-    assertFalse(fileSys.rename(srcPath, dstPath));
-    assertTrue(fileSys.mkdirs(dstPath.getParent()));
-    assertTrue(fileSys.rename(srcPath, dstPath));
-    assertTrue(fileSys.exists(dstPath));
-    assertFalse(fileSys.exists(srcPath));
-    assertTrue(fileSys.exists(srcPath.getParent()));
+    assertFalse(fs.rename(srcPath, dstPath));
+    assertTrue(fs.mkdirs(dstPath.getParent()));
+    assertTrue(fs.rename(srcPath, dstPath));
+    assertTrue(fs.exists(dstPath));
+    assertFalse(fs.exists(srcPath));
+    assertTrue(fs.exists(srcPath.getParent()));
   }
 
 
   @Test(timeout = 10000)
   public void testRenameDirectory() throws IOException {
-    if (!liveTest) {
-      return;
-    }
+    Path srcPath = path("/tests3a/a");
 
-    Path srcPath = new Path(testRootDir, "a");
-
-    assertTrue(fileSys.mkdirs(srcPath));
+    assertTrue(fs.mkdirs(srcPath));
     writeFile(new Path(srcPath, "b/testfile"), 1024);
 
-    Path nonEmptyPath = new Path(testRootDir, "nonempty");
+    Path nonEmptyPath = path("/tests3a/nonempty");
     writeFile(new Path(nonEmptyPath, "b/testfile"), 1024);
 
-    assertFalse(fileSys.rename(srcPath, nonEmptyPath));
+    assertFalse(fs.rename(srcPath, nonEmptyPath));
 
-    Path dstPath = new Path(testRootDir, "b");
-    assertTrue(fileSys.rename(srcPath, dstPath));
-    assertFalse(fileSys.exists(srcPath));
-    assertTrue(fileSys.exists(new Path(dstPath, "b/testfile")));
+    Path dstPath = path("/tests3a/b");
+    assertTrue(fs.rename(srcPath, dstPath));
+    assertFalse(fs.exists(srcPath));
+    assertTrue(fs.exists(new Path(dstPath, "b/testfile")));
   }
 
 
   @Test(timeout=10000)
   public void testSeek() throws IOException {
-    if (!liveTest) {
-      return;
-    }
-
-    Path path = new Path(testRootDir, "testfile.seek");
+    Path path = path("/tests3a/testfile.seek");
     writeFile(path, TEST_BUFFER_SIZE * 10);
 
 
-    FSDataInputStream inputStream = fileSys.open(path, TEST_BUFFER_SIZE);
+    FSDataInputStream inputStream = fs.open(path, TEST_BUFFER_SIZE);
     inputStream.seek(inputStream.getPos() + MODULUS);
 
     testReceivedData(inputStream, TEST_BUFFER_SIZE * 10 - MODULUS);
@@ -260,20 +219,20 @@ public class TestLiveS3AFileSystem {
    */
   private void createAndReadFileTest(final long fileSize) throws IOException {
     final String objectName = UUID.randomUUID().toString();
-    final Path objectPath = new Path(testRootDir, objectName);
+    final Path objectPath = new Path("/tests3a/", objectName);
 
     // Write test file to S3
-    final OutputStream outputStream = fileSys.create(objectPath, false);
+    final OutputStream outputStream = fs.create(objectPath, false);
     generateTestData(outputStream, fileSize);
     outputStream.close();
 
     // Now read the same file back from S3
-    final InputStream inputStream = fileSys.open(objectPath);
+    final InputStream inputStream = fs.open(objectPath);
     testReceivedData(inputStream, fileSize);
     inputStream.close();
 
     // Delete test file
-    fileSys.delete(objectPath, false);
+    fs.delete(objectPath, false);
   }
 
 
@@ -353,7 +312,7 @@ public class TestLiveS3AFileSystem {
   }
 
   private void writeFile(Path name, int fileSize) throws IOException {
-    final OutputStream outputStream = fileSys.create(name, false);
+    final OutputStream outputStream = fs.create(name, false);
     generateTestData(outputStream, fileSize);
     outputStream.close();
   }
