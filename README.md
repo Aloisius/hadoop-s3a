@@ -32,9 +32,10 @@ Copy jar and various dependencies to your hadoop libs dir
 (run 'hadoop classpath' to find appropriate lib dir):
 
 ```shell
-$ cp target/hadoop-s3a-0.0.1.jar \
-     target/lib/aws-java-sdk-1.7.2.jar \
+$ cp target/hadoop-s3a-0.0.4.jar \
+     target/lib/aws-java-sdk-1.7.6.jar \
      target/lib/httpcore-4.2.jar \
+     target/lib/httpclient-4.2.jar \
      target/lib/jackson-databind-2.1.1.jar \
      target/lib/jackson-core-2.1.1.jar \
      target/lib/jackson-annotations-2.1.1.jar \
