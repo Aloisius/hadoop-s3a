@@ -72,7 +72,7 @@ public class S3AFileSystem extends FileSystem {
   private String bucket;
   private int maxKeys;
   private long partSize;
-  private int partSizeThreshold;
+  private long partSizeThreshold;
   public static final Log LOG = LogFactory.getLog(S3AFileSystem.class);
   private CannedAccessControlList cannedACL;
 
@@ -123,7 +123,7 @@ public class S3AFileSystem extends FileSystem {
 
     maxKeys = conf.getInt(NEW_MAX_PAGING_KEYS, conf.getInt(OLD_MAX_PAGING_KEYS, DEFAULT_MAX_PAGING_KEYS));
     partSize = conf.getLong(NEW_MULTIPART_SIZE, conf.getLong(OLD_MULTIPART_SIZE, DEFAULT_MULTIPART_SIZE));
-    partSizeThreshold = conf.getInt(NEW_MIN_MULTIPART_THRESHOLD, conf.getInt(OLD_MIN_MULTIPART_THRESHOLD, DEFAULT_MIN_MULTIPART_THRESHOLD));
+    partSizeThreshold = conf.getLong(NEW_MIN_MULTIPART_THRESHOLD, conf.getLong(OLD_MIN_MULTIPART_THRESHOLD, DEFAULT_MIN_MULTIPART_THRESHOLD));
 
     if (partSize < 5 * 1024 * 1024) {
       LOG.error(NEW_MULTIPART_SIZE + " must be at least 5 MB");

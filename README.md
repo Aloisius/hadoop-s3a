@@ -25,7 +25,7 @@ Build Instructions
 Build using maven:
 
 ```shell
-$ mvn package
+$ mvn package -DskipTests=true
 ```
 
 Copy jar and various dependencies to your hadoop libs dir 
@@ -168,8 +168,5 @@ operations. Unlike the s3native driver, we only count bytes written when we
 start the upload (as opposed to the write calls to the temporary local file). 
 The driver also counts read & write ops, but they are done mostly to keep 
 from timing out on large s3 operations.
-
-The AWS SDK unfortunately passes the multipart threshold as an int which means
-fs.s3a.multipart.threshold can not be greater than 2^31-1 (2147483647).
 
 This is currently implemented as a FileSystem and not a AbstractFileSystem.
