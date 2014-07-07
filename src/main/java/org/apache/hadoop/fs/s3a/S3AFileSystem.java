@@ -75,6 +75,9 @@ public class S3AFileSystem extends FileSystem {
   private long partSizeThreshold;
   public static final Log LOG = LogFactory.getLog(S3AFileSystem.class);
   private CannedAccessControlList cannedACL;
+  
+  // The maximum number of entries that can be deleted in any call to s3
+  private static final int MAX_ENTRIES_TO_DELETE = 1000;
 
 
   /** Called after a new FileSystem instance is constructed.
@@ -367,6 +370,13 @@ public class S3AFileSystem extends FileSystem {
           keysToDelete.add(new DeleteObjectsRequest.KeyVersion(summary.getKey()));
           String newDstKey = dstKey + summary.getKey().substring(srcKey.length());
           copyFile(summary.getKey(), newDstKey);
+          
+          if (keysToDelete.size() == MAX_ENTRIES_TO_DELETE) {
+          	DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket).withKeys(keysToDelete);
+          	s3.deleteObjects(deleteRequest);
+          	statistics.incrementWriteOps(1);
+          	keysToDelete.clear();
+          }
         }
 
         if (objects.isTruncated()) {
@@ -456,13 +466,15 @@ public class S3AFileSystem extends FileSystem {
             if (LOG.isDebugEnabled()) {
               LOG.debug("Got object to delete " + summary.getKey());
             }
+            
+            if (keys.size() == MAX_ENTRIES_TO_DELETE) {
+            	DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket).withKeys(keys);
+            	s3.deleteObjects(deleteRequest);
+            	statistics.incrementWriteOps(1);
+            	keys.clear();
+            }
           }
 
-          DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket);
-          deleteRequest.setKeys(keys);
-          s3.deleteObjects(deleteRequest);
-          statistics.incrementWriteOps(1);
-          keys.clear();
 
           if (objects.isTruncated()) {
             objects = s3.listNextBatchOfObjects(objects);
@@ -470,6 +482,12 @@ public class S3AFileSystem extends FileSystem {
           } else {
             break;
           }
+        }
+        
+        if (!keys.isEmpty()) {
+	        DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket).withKeys(keys);
+	      	s3.deleteObjects(deleteRequest);
+	      	statistics.incrementWriteOps(1);
         }
       }
     } else {
@@ -808,6 +826,15 @@ public class S3AFileSystem extends FileSystem {
     if (delSrc) {
       local.delete(src, false);
     }
+  }
+  
+  /**
+   * Override getCanonicalServiceName because we don't support token in S3A
+   */
+  @Override
+  public String getCanonicalServiceName() {
+    // Does not support Token
+  	return null;
   }
 
   private void copyFile(String srcKey, String dstKey) throws IOException {
