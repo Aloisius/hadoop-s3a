@@ -81,5 +81,8 @@ public class Constants {
   public static final String NEW_PURGE_EXISTING_MULTIPART_AGE = "fs.s3a.multipart.purge.age";
   public static final long DEFAULT_PURGE_EXISTING_MULTIPART_AGE = 14400;
   
+  //s3 server-side encryption
+  public static final String SERVER_SIDE_ENCRYPTION_ALGORITHM = "fs.s3a.server-side-encryption-algorithm";
+  
   public static final String S3N_FOLDER_SUFFIX = "_$folder$";
 }
