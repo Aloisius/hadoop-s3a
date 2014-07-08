@@ -39,6 +39,7 @@ $ cp target/hadoop-s3a-0.0.5.jar \
      target/lib/jackson-databind-2.1.1.jar \
      target/lib/jackson-core-2.1.1.jar \
      target/lib/jackson-annotations-2.1.1.jar \
+     target/lib/joda-time-2.3.jar \
      /usr/lib/hadoop/lib/
 ```
 
