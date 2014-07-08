@@ -32,8 +32,8 @@ Copy jar and various dependencies to your hadoop libs dir
 (run 'hadoop classpath' to find appropriate lib dir):
 
 ```shell
-$ cp target/hadoop-s3a-0.0.4.jar \
-     target/lib/aws-java-sdk-1.7.6.jar \
+$ cp target/hadoop-s3a-0.0.5.jar \
+     target/lib/aws-java-sdk-1.8.3.jar \
      target/lib/httpcore-4.2.jar \
      target/lib/httpclient-4.2.jar \
      target/lib/jackson-databind-2.1.1.jar \
@@ -42,7 +42,7 @@ $ cp target/hadoop-s3a-0.0.4.jar \
      /usr/lib/hadoop/lib/
 ```
 
-Note: These are dependencies that are necessary for CDH 5b2 which is based on
+Note: These are dependencies that are necessary for CDH 5 which is based on
 Hadoop 2.2.0. There is a chance you'll need other dependencies for different
 versions located in the target/lib dir.
 
@@ -109,6 +109,7 @@ much testing.
 - fs.s3a.multipart.purge - True if you want to purge existing multipart uploads that may not have been completed/aborted correctly (default: false)
 - fs.s3a.multipart.purge.age - Minimum age in seconds of multipart uploads to purge (default: 86400)
 - fs.s3a.buffer.dir - Comma separated list of directories that will be used to buffer file writes out of (default: uses fs.s3.buffer.dir)
+- fs.s3a.server-side-encryption-algorithm - Name of server side encryption algorithm to use for writing files (e.g. AES256) (default: null)
 
 Key name changes in 0.0.2
 --------------------------
@@ -171,3 +172,14 @@ The driver also counts read & write ops, but they are done mostly to keep
 from timing out on large s3 operations.
 
 This is currently implemented as a FileSystem and not a AbstractFileSystem.
+
+Changes
+-------
+
+0.0.5
+
+- Integrated server side encryption patch from David S. Wang.
+- Integrated bugfix that prevented ExportSnapshot to work with Kerberized clusters from  David S. Wang
+- Integrated bugfix where we weren't reading new parameter names from David S. Wang
+- Integrated bugfix to limit delete calls to 1000 objects at a time from  David S. Wang 
+- Retry one time on IOException during read() calls

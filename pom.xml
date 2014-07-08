@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>hadoop-s3a</groupId>
   <artifactId>hadoop-s3a</artifactId>
-  <version>0.0.4</version>
+  <version>0.0.5</version>
   <description>Alternative S3 FileSystem for Hadoop</description>
   <build>
     <plugins>
