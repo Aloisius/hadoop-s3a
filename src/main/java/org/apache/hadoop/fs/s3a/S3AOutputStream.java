@@ -104,20 +104,20 @@ public class S3AOutputStream extends OutputStream {
     LOG.info("OutputStream for key '" + key + "' closed. Now beginning upload");
     LOG.info("Minimum upload part size: " + partSize + " threshold " + partSizeThreshold);
 
+    TransferManagerConfiguration transferConfiguration = new TransferManagerConfiguration();
+    transferConfiguration.setMinimumUploadPartSize(partSize);
+    transferConfiguration.setMultipartUploadThreshold(partSizeThreshold);
+
+    TransferManager transfers = new TransferManager(client);
+    transfers.setConfiguration(transferConfiguration);
 
     try {
-      TransferManagerConfiguration transferConfiguration = new TransferManagerConfiguration();
-      transferConfiguration.setMinimumUploadPartSize(partSize);
-      transferConfiguration.setMultipartUploadThreshold(partSizeThreshold);
-
-      TransferManager transfers = new TransferManager(client);
-      transfers.setConfiguration(transferConfiguration);
 
       final ObjectMetadata om = new ObjectMetadata();
     	if (StringUtils.isNotBlank(serverSideEncryptionAlgorithm)) {
     		om.setServerSideEncryption(serverSideEncryptionAlgorithm);
     	}
-      
+
       PutObjectRequest putObjectRequest = new PutObjectRequest(bucket, key, backupFile);
       putObjectRequest.setCannedAcl(cannedACL);
       putObjectRequest.setMetadata(om);
@@ -147,6 +147,7 @@ public class S3AOutputStream extends OutputStream {
       }
       super.close();
       closed = true;
+      transfers.shutdownNow(false);
     }
 
     LOG.info("OutputStream for key '" + key + "' upload complete");
