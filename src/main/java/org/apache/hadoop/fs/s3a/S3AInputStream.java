@@ -78,6 +78,10 @@ public class S3AInputStream extends FSInputStream {
     wrappedObject = client.getObject(request);
     wrappedStream = wrappedObject.getObjectContent();
 
+    if (wrappedObject == null) {
+      throw new IOException("Failed to make S3 GetObject request");
+    }
+
     if (wrappedStream == null) {
       throw new IOException("Null IO stream");
     }
