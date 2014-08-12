@@ -50,6 +50,7 @@ import com.amazonaws.services.s3.transfer.Upload;
 import com.amazonaws.event.ProgressListener;
 import com.amazonaws.event.ProgressEvent;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -75,6 +76,10 @@ public class S3AFileSystem extends FileSystem {
   private long partSizeThreshold;
   public static final Log LOG = LogFactory.getLog(S3AFileSystem.class);
   private CannedAccessControlList cannedACL;
+  private String serverSideEncryptionAlgorithm;
+  
+  // The maximum number of entries that can be deleted in any call to s3
+  private static final int MAX_ENTRIES_TO_DELETE = 1000;
 
 
   /** Called after a new FileSystem instance is constructed.
@@ -157,6 +162,8 @@ public class S3AFileSystem extends FileSystem {
       transferManager.shutdownNow(false);
     }
 
+    serverSideEncryptionAlgorithm = conf.get(SERVER_SIDE_ENCRYPTION_ALGORITHM, null);
+    
     setConf(conf);
   }
 
@@ -249,7 +256,7 @@ public class S3AFileSystem extends FileSystem {
     }
 
     // We pass null to FSDataOutputStream so it won't count writes that are being buffered to a file
-    return new FSDataOutputStream(new S3AOutputStream(getConf(), s3, this, bucket, key, progress, cannedACL, statistics), null);
+    return new FSDataOutputStream(new S3AOutputStream(getConf(), s3, this, bucket, key, progress, cannedACL, statistics, serverSideEncryptionAlgorithm), null);
   }
 
   /**
@@ -379,6 +386,13 @@ public class S3AFileSystem extends FileSystem {
           keysToDelete.add(new DeleteObjectsRequest.KeyVersion(summary.getKey()));
           String newDstKey = dstKey + summary.getKey().substring(srcKey.length());
           copyFile(summary.getKey(), newDstKey);
+          
+          if (keysToDelete.size() == MAX_ENTRIES_TO_DELETE) {
+          	DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket).withKeys(keysToDelete);
+          	s3.deleteObjects(deleteRequest);
+          	statistics.incrementWriteOps(1);
+          	keysToDelete.clear();
+          }
         }
 
         if (objects.isTruncated()) {
@@ -468,13 +482,15 @@ public class S3AFileSystem extends FileSystem {
             if (LOG.isDebugEnabled()) {
               LOG.debug("Got object to delete " + summary.getKey());
             }
+            
+            if (keys.size() == MAX_ENTRIES_TO_DELETE) {
+            	DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket).withKeys(keys);
+            	s3.deleteObjects(deleteRequest);
+            	statistics.incrementWriteOps(1);
+            	keys.clear();
+            }
           }
 
-          DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket);
-          deleteRequest.setKeys(keys);
-          s3.deleteObjects(deleteRequest);
-          statistics.incrementWriteOps(1);
-          keys.clear();
 
           if (objects.isTruncated()) {
             objects = s3.listNextBatchOfObjects(objects);
@@ -482,6 +498,12 @@ public class S3AFileSystem extends FileSystem {
           } else {
             break;
           }
+        }
+        
+        if (!keys.isEmpty()) {
+	        DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket).withKeys(keys);
+	      	s3.deleteObjects(deleteRequest);
+	      	statistics.incrementWriteOps(1);
         }
       }
     } else {
@@ -790,8 +812,14 @@ public class S3AFileSystem extends FileSystem {
     TransferManager transfers = new TransferManager(s3);
     transfers.setConfiguration(transferConfiguration);
 
+    final ObjectMetadata om = new ObjectMetadata();
+    if (StringUtils.isNotBlank(serverSideEncryptionAlgorithm)) {
+    	om.setServerSideEncryption(serverSideEncryptionAlgorithm);
+    }
+    
     PutObjectRequest putObjectRequest = new PutObjectRequest(bucket, key, srcfile);
     putObjectRequest.setCannedAcl(cannedACL);
+    putObjectRequest.setMetadata(om);
 
     ProgressListener progressListener = new ProgressListener() {
       public void progressChanged(ProgressEvent progressEvent) {
@@ -821,6 +849,15 @@ public class S3AFileSystem extends FileSystem {
       local.delete(src, false);
     }
   }
+  
+  /**
+   * Override getCanonicalServiceName because we don't support token in S3A
+   */
+  @Override
+  public String getCanonicalServiceName() {
+    // Does not support Token
+  	return null;
+  }
 
   private void copyFile(String srcKey, String dstKey) throws IOException {
     if (LOG.isDebugEnabled()) {
@@ -833,8 +870,15 @@ public class S3AFileSystem extends FileSystem {
     TransferManager transfers = new TransferManager(s3);
     transfers.setConfiguration(transferConfiguration);
 
+    ObjectMetadata srcom = s3.getObjectMetadata(bucket, srcKey);
+    final ObjectMetadata dstom = srcom.clone();
+    if (StringUtils.isNotBlank(serverSideEncryptionAlgorithm)) {
+    	dstom.setServerSideEncryption(serverSideEncryptionAlgorithm);
+    }
+    
     CopyObjectRequest copyObjectRequest = new CopyObjectRequest(bucket, srcKey, bucket, dstKey);
     copyObjectRequest.setCannedAccessControlList(cannedACL);
+    copyObjectRequest.setNewObjectMetadata(dstom);
 
     ProgressListener progressListener = new ProgressListener() {
       public void progressChanged(ProgressEvent progressEvent) {
@@ -925,6 +969,9 @@ public class S3AFileSystem extends FileSystem {
 
     final ObjectMetadata om = new ObjectMetadata();
     om.setContentLength(0L);
+    if (StringUtils.isNotBlank(serverSideEncryptionAlgorithm)) {
+    	om.setServerSideEncryption(serverSideEncryptionAlgorithm);
+    }
     PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, objectName, im, om);
     putObjectRequest.setCannedAcl(cannedACL);
     s3.putObject(putObjectRequest);

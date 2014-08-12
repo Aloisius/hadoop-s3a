@@ -117,13 +117,17 @@ public class S3AInputStream extends FSInputStream {
     try {
       byteRead = wrappedStream.read();
     } catch (SocketTimeoutException e) {
-      LOG.info("Got timeout while trying to read from stream, trying to recover " + e);
+      LOG.error("Got timeout while trying to read from stream, trying to recover " + e);
       reopen(pos);
       byteRead = wrappedStream.read();
     } catch (SocketException e) {
-      LOG.info("Got socket exception while trying to read from stream, trying to recover " + e);
+      LOG.error("Got socket exception while trying to read from stream, trying to recover " + e);
       reopen(pos);
       byteRead = wrappedStream.read();
+    } catch (IOException e) {
+      LOG.error("Got IO exception while trying to read from stream, trying to recover " + e);
+      reopen(pos);
+      byteRead = wrappedStream.read();    	
     }
 
     if (byteRead >= 0) {
@@ -148,13 +152,17 @@ public class S3AInputStream extends FSInputStream {
     try {
       byteRead = wrappedStream.read(buf, off, len);
     } catch (SocketTimeoutException e) {
-      LOG.info("Got timeout while trying to read from stream, trying to recover " + e);
+      LOG.error("Got timeout while trying to read from stream, trying to recover " + e);
       reopen(pos);
       byteRead = wrappedStream.read(buf, off, len);
     } catch (SocketException e) {
-      LOG.info("Got socket exception while trying to read from stream, trying to recover " + e);
+      LOG.error("Got socket exception while trying to read from stream, trying to recover " + e);
       reopen(pos);
       byteRead = wrappedStream.read(buf, off, len);
+    } catch (IOException e) {
+      LOG.error("Got IO exception while trying to read from stream, trying to recover " + e);
+      reopen(pos);
+      byteRead = wrappedStream.read(buf, off, len);    	
     }
 
     if (byteRead > 0) {
@@ -175,7 +183,9 @@ public class S3AInputStream extends FSInputStream {
     }
     super.close();
     closed = true;
-    wrappedObject.close();
+    if (wrappedObject != null) {
+    	wrappedObject.close();
+    }
   }
 
   @Override
