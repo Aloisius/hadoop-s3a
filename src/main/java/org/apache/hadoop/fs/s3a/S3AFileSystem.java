@@ -215,6 +215,18 @@ public class S3AFileSystem extends FileSystem {
   }
 
   /**
+   * Get the close status of a file
+   * @param src The path to the file
+   *
+   * @return return true if file is closed
+   * @throws FileNotFoundException if the file does not exist.
+   * @throws IOException If an I/O error occurred
+   */
+  public boolean isFileClosed(final Path src) throws IOException {
+    return true;
+  }
+
+  /**
    * Create an FSDataOutputStream at the indicated Path with write-progress
    * reporting.
    * @param f the file name to open
