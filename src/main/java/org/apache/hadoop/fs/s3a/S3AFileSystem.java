@@ -126,6 +126,12 @@ public class S3AFileSystem extends FileSystem {
 
     s3 = new AmazonS3Client(credentials, awsConf);
 
+    String endpoint = conf.get(NEW_END_POINT, "");
+    if (!endpoint.isEmpty()) {
+        System.out.println("endpoint: " + endpoint);
+        s3.setEndpoint(endpoint);
+    }
+
     maxKeys = conf.getInt(NEW_MAX_PAGING_KEYS, conf.getInt(OLD_MAX_PAGING_KEYS, DEFAULT_MAX_PAGING_KEYS));
     partSize = conf.getLong(NEW_MULTIPART_SIZE, conf.getLong(OLD_MULTIPART_SIZE, DEFAULT_MULTIPART_SIZE));
     partSizeThreshold = conf.getLong(NEW_MIN_MULTIPART_THRESHOLD, conf.getLong(OLD_MIN_MULTIPART_THRESHOLD, DEFAULT_MIN_MULTIPART_THRESHOLD));
