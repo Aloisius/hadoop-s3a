@@ -39,6 +39,11 @@ public class S3AFileStatus extends FileStatus {
   public boolean isEmptyDirectory() {
     return isEmptyDirectory;
   }
+
+  @Override
+  public String getOwner() {
+    return System.getProperty("user.name");
+  }
   
   /** Compare if this object is equal to another object
    * @param   o the object to be compared.
