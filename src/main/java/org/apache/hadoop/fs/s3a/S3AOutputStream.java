@@ -164,7 +164,7 @@ public class S3AOutputStream extends OutputStream {
 
 
   public synchronized int getNumCurrentReplicas() throws IOException {
-      return -1;
+      return 1;
   }
 
   public static class ProgressableProgressListener implements ProgressListener {
