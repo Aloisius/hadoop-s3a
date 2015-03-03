@@ -34,6 +34,9 @@ import com.amazonaws.Protocol;
 import com.amazonaws.auth.AWSCredentialsProviderChain;
 
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
+import com.amazonaws.regions.Region;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.regions.ServiceAbbreviations;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
@@ -77,7 +80,7 @@ public class S3AFileSystem extends FileSystem {
   public static final Log LOG = LogFactory.getLog(S3AFileSystem.class);
   private CannedAccessControlList cannedACL;
   private String serverSideEncryptionAlgorithm;
-  
+
   // The maximum number of entries that can be deleted in any call to s3
   private static final int MAX_ENTRIES_TO_DELETE = 1000;
 
@@ -125,6 +128,16 @@ public class S3AFileSystem extends FileSystem {
     awsConf.setSocketTimeout(conf.getInt(NEW_SOCKET_TIMEOUT, conf.getInt(OLD_SOCKET_TIMEOUT, DEFAULT_SOCKET_TIMEOUT)));
 
     s3 = new AmazonS3Client(credentials, awsConf);
+		final String regionName = conf.get(Constants.S3_REGION);
+		if(regionName == null) {
+			LOG.warn("no region configured, use the region info from env.");
+		}else {
+			Region region = Region.getRegion(Regions.fromName(regionName));
+			s3.setRegion(region);
+			final String serviceEndpoint = region.getServiceEndpoint(ServiceAbbreviations.S3);
+			s3.setEndpoint(serviceEndpoint);
+			LOG.info("setting s3 region: " + region + ", service endpoint: " + serviceEndpoint);
+		}
 
     maxKeys = conf.getInt(NEW_MAX_PAGING_KEYS, conf.getInt(OLD_MAX_PAGING_KEYS, DEFAULT_MAX_PAGING_KEYS));
     partSize = conf.getLong(NEW_MULTIPART_SIZE, conf.getLong(OLD_MULTIPART_SIZE, DEFAULT_MULTIPART_SIZE));
@@ -163,7 +176,7 @@ public class S3AFileSystem extends FileSystem {
     }
 
     serverSideEncryptionAlgorithm = conf.get(SERVER_SIDE_ENCRYPTION_ALGORITHM, null);
-    
+
     setConf(conf);
   }
 
@@ -374,7 +387,7 @@ public class S3AFileSystem extends FileSystem {
           keysToDelete.add(new DeleteObjectsRequest.KeyVersion(summary.getKey()));
           String newDstKey = dstKey + summary.getKey().substring(srcKey.length());
           copyFile(summary.getKey(), newDstKey);
-          
+
           if (keysToDelete.size() == MAX_ENTRIES_TO_DELETE) {
           	DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket).withKeys(keysToDelete);
           	s3.deleteObjects(deleteRequest);
@@ -470,7 +483,7 @@ public class S3AFileSystem extends FileSystem {
             if (LOG.isDebugEnabled()) {
               LOG.debug("Got object to delete " + summary.getKey());
             }
-            
+
             if (keys.size() == MAX_ENTRIES_TO_DELETE) {
             	DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket).withKeys(keys);
             	s3.deleteObjects(deleteRequest);
@@ -487,7 +500,7 @@ public class S3AFileSystem extends FileSystem {
             break;
           }
         }
-        
+
         if (!keys.isEmpty()) {
 	        DeleteObjectsRequest deleteRequest = new DeleteObjectsRequest(bucket).withKeys(keys);
 	      	s3.deleteObjects(deleteRequest);
@@ -804,7 +817,7 @@ public class S3AFileSystem extends FileSystem {
     if (StringUtils.isNotBlank(serverSideEncryptionAlgorithm)) {
     	om.setServerSideEncryption(serverSideEncryptionAlgorithm);
     }
-    
+
     PutObjectRequest putObjectRequest = new PutObjectRequest(bucket, key, srcfile);
     putObjectRequest.setCannedAcl(cannedACL);
     putObjectRequest.setMetadata(om);
@@ -837,7 +850,7 @@ public class S3AFileSystem extends FileSystem {
       local.delete(src, false);
     }
   }
-  
+
   /**
    * Override getCanonicalServiceName because we don't support token in S3A
    */
@@ -863,7 +876,7 @@ public class S3AFileSystem extends FileSystem {
     if (StringUtils.isNotBlank(serverSideEncryptionAlgorithm)) {
     	dstom.setServerSideEncryption(serverSideEncryptionAlgorithm);
     }
-    
+
     CopyObjectRequest copyObjectRequest = new CopyObjectRequest(bucket, srcKey, bucket, dstKey);
     copyObjectRequest.setCannedAccessControlList(cannedACL);
     copyObjectRequest.setNewObjectMetadata(dstom);
