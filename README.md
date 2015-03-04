@@ -75,6 +75,12 @@ Add the following keys to your core-site.xml file:
   <name>fs.s3a.impl</name>
   <value>org.apache.hadoop.fs.s3a.S3AFileSystem</value>
 </property>
+
+<!-- necessary for use this in AWS cn-north-1 region -->
+<property>
+  <name>fs.s3a.region</name>
+  <value>cn-north-1</value>
+</property>
 ```
 
 You probably want to add this to your log4j.properties file:
