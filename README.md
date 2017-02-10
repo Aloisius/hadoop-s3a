@@ -1,3 +1,9 @@
+Please note: This FileSystem is now included in Hadoop starting at version 2.6. The code here is no longer maintained.
+
+More information can be found at: https://wiki.apache.org/hadoop/AmazonS3
+
+---
+
 An AWS SDK-backed FileSystem driver for Hadoop
 ==============================================
 
