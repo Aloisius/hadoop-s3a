@@ -27,7 +27,10 @@ public class Constants {
   // s3 secret key
   public static final String OLD_SECRET_KEY = "fs.s3a.awsSecretAccessKey";
   public static final String NEW_SECRET_KEY = "fs.s3a.secret.key";
-  
+ 
+  // s3 end point
+  public static final String NEW_END_POINT = "fs.s3a.endpoint";
+ 
   // number of simultaneous connections to s3
   public static final String OLD_MAXIMUM_CONNECTIONS = "fs.s3a.maxConnections";
   public static final String NEW_MAXIMUM_CONNECTIONS = "fs.s3a.connection.maximum";
