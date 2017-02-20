@@ -162,6 +162,11 @@ public class S3AOutputStream extends OutputStream {
     backupStream.write(b, off, len);
   }
 
+
+  public synchronized int getNumCurrentReplicas() throws IOException {
+      return 1;
+  }
+
   public static class ProgressableProgressListener implements ProgressListener {
     private Progressable progress;
     private FileSystem.Statistics statistics;
