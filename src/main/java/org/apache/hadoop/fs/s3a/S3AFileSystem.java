@@ -564,12 +564,12 @@ public class S3AFileSystem extends FileSystem {
           }
 
           if (objectRepresentsDirectory(summary.getKey(), summary.getSize())) {
-            result.add(new S3AFileStatus(true, true, keyPath));
+            result.add(new S3AFileStatus(true, true, keyPath, getDefaultBlockSize()));
             if (LOG.isDebugEnabled()) {
               LOG.debug("Adding: fd: " + keyPath);
             }
           } else {
-            result.add(new S3AFileStatus(summary.getSize(), dateToLong(summary.getLastModified()), keyPath));
+            result.add(new S3AFileStatus(summary.getSize(), dateToLong(summary.getLastModified()), keyPath, getDefaultBlockSize()));
             if (LOG.isDebugEnabled()) {
               LOG.debug("Adding: fi: " + keyPath);
             }
@@ -581,7 +581,7 @@ public class S3AFileSystem extends FileSystem {
           if (keyPath.equals(f)) {
             continue;
           }
-          result.add(new S3AFileStatus(true, false, keyPath));
+          result.add(new S3AFileStatus(true, false, keyPath, getDefaultBlockSize()));
           if (LOG.isDebugEnabled()) {
             LOG.debug("Adding: rd: " + keyPath);
           }
@@ -675,13 +675,13 @@ public class S3AFileSystem extends FileSystem {
           if (LOG.isDebugEnabled()) {
             LOG.debug("Found exact file: fake directory");
           }
-          return new S3AFileStatus(true, true, f.makeQualified(uri, workingDir));
+          return new S3AFileStatus(true, true, f.makeQualified(uri, workingDir), getDefaultBlockSize());
         } else {
           if (LOG.isDebugEnabled()) {
             LOG.debug("Found exact file: normal file");
           }
           return new S3AFileStatus(meta.getContentLength(), dateToLong(meta.getLastModified()),
-              f.makeQualified(uri, workingDir));
+              f.makeQualified(uri, workingDir), getDefaultBlockSize());
         }
       } catch (AmazonServiceException e) {
         if (e.getStatusCode() != 404) {
@@ -704,12 +704,12 @@ public class S3AFileSystem extends FileSystem {
             if (LOG.isDebugEnabled()) {
               LOG.debug("Found file (with /): fake directory");
             }
-            return new S3AFileStatus(true, true, f.makeQualified(uri, workingDir));
+            return new S3AFileStatus(true, true, f.makeQualified(uri, workingDir), getDefaultBlockSize());
           } else {
             LOG.warn("Found file (with /): real file? should not happen: " + key);
 
             return new S3AFileStatus(meta.getContentLength(), dateToLong(meta.getLastModified()),
-                f.makeQualified(uri, workingDir));
+                f.makeQualified(uri, workingDir), getDefaultBlockSize());
           }
         } catch (AmazonServiceException e) {
           if (e.getStatusCode() != 404) {
@@ -748,7 +748,7 @@ public class S3AFileSystem extends FileSystem {
           }
         }
 
-        return new S3AFileStatus(true, false, f.makeQualified(uri, workingDir));
+        return new S3AFileStatus(true, false, f.makeQualified(uri, workingDir), getDefaultBlockSize());
       }
     } catch (AmazonServiceException e) {
       if (e.getStatusCode() != 404) {

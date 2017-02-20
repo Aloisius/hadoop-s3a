@@ -25,14 +25,14 @@ public class S3AFileStatus extends FileStatus {
   private boolean isEmptyDirectory;
 
   // Directories
-  public S3AFileStatus(boolean isdir, boolean isemptydir, Path path) {
-    super(0, isdir, 1, 0, 0, path);
+  public S3AFileStatus(boolean isdir, boolean isemptydir, Path path, long block_size) {
+    super(0, isdir, 1, block_size, 0, path);
     isEmptyDirectory = isemptydir;
   }
 
   // Files
-  public S3AFileStatus(long length, long modification_time, Path path) {
-    super(length, false, 1, 0, modification_time, path);
+  public S3AFileStatus(long length, long modification_time, Path path, long block_size) {
+    super(length, false, 1, block_size, modification_time, path);
     isEmptyDirectory = false;
   }
 
