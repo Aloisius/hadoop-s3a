@@ -85,4 +85,7 @@ public class Constants {
   public static final String SERVER_SIDE_ENCRYPTION_ALGORITHM = "fs.s3a.server-side-encryption-algorithm";
   
   public static final String S3N_FOLDER_SUFFIX = "_$folder$";
+
+	//s3 region configuration
+	public static final String S3_REGION = "fs.s3a.region";
 }
